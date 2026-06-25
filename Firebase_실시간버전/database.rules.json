@@ -1,0 +1,14 @@
+{
+  "rules": {
+    "allowedEmails": {
+      ".read": false,
+      ".write": false
+    },
+    "teams": {
+      "$team": {
+        ".read":  "auth != null && auth.token.email_verified == true && root.child('allowedEmails').child(auth.token.email.toLowerCase().replace('.', ',')).val() == true",
+        ".write": "auth != null && auth.token.email_verified == true && root.child('allowedEmails').child(auth.token.email.toLowerCase().replace('.', ',')).val() == true"
+      }
+    }
+  }
+}
