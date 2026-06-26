@@ -293,6 +293,14 @@ tbody td{padding:8px 10px;color:#202124;vertical-align:middle}
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
 <body>
+<div id="auth-gate" style="position:fixed;inset:0;z-index:9998;background:#0f1419;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#e8eaed;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px;text-align:center">
+  <div style="font-size:46px;margin-bottom:16px">🔒</div>
+  <div style="font-size:20px;font-weight:800;margin-bottom:10px">매출 대시보드</div>
+  <div id="auth-gate-msg" style="font-size:14px;color:#9aa0a6;line-height:1.7;margin-bottom:24px;max-width:340px">허가된 사용자만 이용할 수 있습니다.<br>Google 계정으로 로그인해 주세요.</div>
+  <button id="auth-gate-login" onclick="if(typeof fbSignIn==='function')fbSignIn()" style="background:#1a73e8;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">🔑 Google 로그인</button>
+  <button id="auth-gate-team" onclick="if(typeof syncOpenTeamModal==='function')syncOpenTeamModal()" style="display:none;background:#1a73e8;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">👥 소속 팀 선택</button>
+  <button id="auth-gate-out" onclick="if(typeof fbSignOut==='function')fbSignOut()" style="display:none;margin-top:14px;background:none;color:#9aa0a6;border:1px solid #3c4043;border-radius:8px;padding:8px 18px;font-size:13px;cursor:pointer">다른 계정으로 로그인</button>
+</div>
 
 <!-- UPLOAD SCREEN -->
 <div id="upload-screen">
@@ -5279,9 +5287,9 @@ function fbInit(){
     _fbAuth.onAuthStateChanged(function(user){
       if(user){
         _fbEmail=user.email||''; _fbReady=true;
-        if(syncTeam()){ fbAttach(); } else { syncSetStatus('ok'); syncOpenTeamModal(); }
+        if(syncTeam()){ fbAttach(); } else { syncSetStatus('ok'); authGateSet('team'); syncOpenTeamModal(); }
       } else {
-        _fbReady=false; _fbEmail=''; fbDetach(); syncSetStatus('signin');
+        _fbReady=false; _fbEmail=''; fbDetach(); syncSetStatus('signin'); authGateSet('login');
       }
     });
   }catch(e){ syncSetStatus('err'); }
@@ -5298,10 +5306,11 @@ function fbAttach(){
   syncSetStatus('loading');
   _fbMemoRef=fbMemosRef();
   _fbMemoRef.on('value', function(snap){
+    authGateReveal();
     fbMergeMemos(fbUnpack(snap.val()||{}));
     _syncOrigSave(); _syncSnap=JSON.stringify(window.LS_MGMT);
     syncSetStatus('ok'); syncRefreshUI();
-  }, function(){ syncSetStatus('err'); });
+  }, function(){ syncSetStatus('err'); authGateSet('deny'); });
   _fbNoticeRef=fbNoticesRef();
   _fbNoticeRef.on('value', function(snap){
     var remote=snap.val()||{}, local=noticesRead();
@@ -5351,6 +5360,17 @@ function syncSetStatus(st){
   var m=map[st]||map.ok;
   var who=_fbEmail?(' · <span style="color:#5f6368">'+_fbEmail+'</span>'):'';
   b.innerHTML='☁️ '+team+' · <span style="color:'+m[0]+'">'+m[1]+'</span>'+who;
+}
+function authGateReveal(){ var g=document.getElementById('auth-gate'); if(g) g.style.display='none'; }
+function authGateSet(state){
+  var g=document.getElementById('auth-gate'); if(!g) return;
+  var msg=document.getElementById('auth-gate-msg');
+  var bIn=document.getElementById('auth-gate-login'), bTeam=document.getElementById('auth-gate-team'), bOut=document.getElementById('auth-gate-out');
+  g.style.display='flex';
+  if(bIn) bIn.style.display='none'; if(bTeam) bTeam.style.display='none'; if(bOut) bOut.style.display='none';
+  if(state==='team'){ if(msg) msg.innerHTML='소속 팀을 선택하면 시작됩니다.'; if(bTeam) bTeam.style.display='inline-block'; if(bOut) bOut.style.display='inline-block'; }
+  else if(state==='deny'){ if(msg) msg.innerHTML='접근 권한이 없습니다.<br>관리자에게 계정 등록을 요청하세요.'; if(bOut) bOut.style.display='inline-block'; }
+  else { if(msg) msg.innerHTML='허가된 사용자만 이용할 수 있습니다.<br>Google 계정으로 로그인해 주세요.'; if(bIn) bIn.style.display='inline-block'; }
 }
 function syncMakeBadge(){
   if(document.getElementById('sync-badge')) return;
@@ -5471,8 +5491,9 @@ if(window.deleteMemoEntry){
 
 // 초기화
 (function syncInit(){
-  if(!syncEnabled()) return; // Firebase 설정 전엔 기존 방식(이 PC에만 저장)
+  if(!syncEnabled()){ authGateReveal(); return; } // Firebase 미설정 시 잠금 해제
   syncMakeBadge();
+  authGateSet('login');
   syncSetStatus('signin');
   fbInit();
 })();
