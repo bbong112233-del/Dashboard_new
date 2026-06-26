@@ -293,10 +293,8 @@ tbody td{padding:8px 10px;color:#202124;vertical-align:middle}
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
 <body>
-<div id="auth-gate" style="position:fixed;inset:0;z-index:9998;background:#0f1419;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#e8eaed;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px;text-align:center">
-  <div style="font-size:46px;margin-bottom:16px">🔒</div>
-  <div style="font-size:20px;font-weight:800;margin-bottom:10px">매출 대시보드</div>
-  <div id="auth-gate-msg" style="font-size:14px;color:#9aa0a6;line-height:1.7;margin-bottom:24px;max-width:340px">허가된 사용자만 이용할 수 있습니다.<br>Google 계정으로 로그인해 주세요.</div>
+<div id="auth-gate" style="position:fixed;inset:0;z-index:9998;background:linear-gradient(rgba(10,15,20,.30),rgba(10,15,20,.80)),url('GATE-BG.JPG') center/cover no-repeat;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;color:#fff;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:0 24px 13vh;text-align:center">
+  <div id="auth-gate-msg" style="font-size:15px;color:#eef1f4;line-height:1.7;margin-bottom:22px;max-width:360px;text-shadow:0 1px 6px rgba(0,0,0,.7)">허가된 사용자만 이용할 수 있습니다.<br>Google 계정으로 로그인해 주세요.</div>
   <button id="auth-gate-login" onclick="if(typeof fbSignIn==='function')fbSignIn()" style="background:#1a73e8;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">🔑 Google 로그인</button>
   <button id="auth-gate-team" onclick="if(typeof syncOpenTeamModal==='function')syncOpenTeamModal()" style="display:none;background:#1a73e8;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">👥 소속 팀 선택</button>
   <button id="auth-gate-out" onclick="if(typeof fbSignOut==='function')fbSignOut()" style="display:none;margin-top:14px;background:none;color:#9aa0a6;border:1px solid #3c4043;border-radius:8px;padding:8px 18px;font-size:13px;cursor:pointer">다른 계정으로 로그인</button>
