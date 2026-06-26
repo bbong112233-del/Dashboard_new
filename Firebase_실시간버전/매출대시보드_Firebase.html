@@ -368,7 +368,7 @@ tbody td{padding:8px 10px;color:#202124;vertical-align:middle}
       <input type="file" id="tgt-file-input" accept=".xlsx,.xls" multiple>
     </label>
     <label class="reupload-btn">📂 파일 재업로드<input type="file" id="reupload-input" accept=".xlsx,.xls"></label>
-    <button class="reupload-btn" id="btn-export-html" style="display:none" onclick="exportSnapshotHTML()">💾 HTML 내보내기</button>
+    <button class="reupload-btn" id="btn-publish-data" style="display:none;background:rgba(120,200,120,.25);border-color:rgba(120,200,120,.55)" title="현재 데이터를 팀 전체에 공유(관리자)" onclick="publishSharedData()">📤 데이터 게시</button>
   </div>
   <div class="tabs">
     <div class="tab active" data-tab="overview">📈 종합 현황</div>
@@ -1873,7 +1873,6 @@ function handleFile(file){
             document.getElementById('target-month-wrap').style.display='flex';
             (function(){var _tm=document.getElementById('sel-target-month'); if(_tm&&!_tm.value){ _tm.value=String(new Date().getMonth()+1); if(typeof renderTargetKPI==='function') renderTargetKPI(); }})();
             document.getElementById('tgt-upload-wrap').style.display='flex';
-            const _expBtn=document.getElementById('btn-export-html');if(_expBtn)_expBtn.style.display='inline-flex';
             setTimeout(function(){var nav=document.getElementById('top-nav');var pw=document.getElementById('panels-wrap');if(nav&&pw)pw.style.paddingTop=nav.getBoundingClientRect().height+'px';},30);
           },500);
         }catch(err){
@@ -4538,107 +4537,6 @@ function dashSwitchInd(ind){
 }
 
 // ══ HTML 완전 기능 내보내기 ══
-function exportSnapshotHTML(){
-  if(!window._allRows||!window._allRows.length){
-    alert('먼저 데이터를 불러와 주세요.');return;
-  }
-
-  const now=new Date();
-  const stamp=now.getFullYear()+'.'+String(now.getMonth()+1).padStart(2,'0')+'.'+String(now.getDate()).padStart(2,'0');
-
-  // 1. DOM 클론
-  const clone=document.documentElement.cloneNode(true);
-
-  // 2. 업로드/로딩 화면 숨기기 (JS가 요소를 참조하므로 제거 대신 숨김)
-  const uploadEl=clone.querySelector('#upload-screen');
-  if(uploadEl)uploadEl.style.display='none';
-  const loadEl=clone.querySelector('#loading');
-  if(loadEl)loadEl.style.display='none';
-
-  // 3. 대시보드 + 네비 컨트롤 표시
-  const dashEl=clone.querySelector('#dashboard');
-  if(dashEl)dashEl.style.display='block';
-  ['target-month-wrap','tgt-upload-wrap'].forEach(id=>{
-    const el=clone.querySelector('#'+id);if(el)el.style.display='flex';
-  });
-
-  // 4. 내보내기 버튼 제거 (재귀 방지)
-  const expBtn=clone.querySelector('#btn-export-html');
-  if(expBtn)expBtn.remove();
-
-  // 5. 헤더 타임스탬프
-  const subEl=clone.querySelector('#hdr-sub');
-  if(subEl)subEl.textContent='스냅샷 '+stamp;
-
-  // 6. 현재 목표 기준월
-  const selMonthVal=document.getElementById('sel-target-month')?.value||'';
-  const selMonthEl=clone.querySelector('#sel-target-month');
-  if(selMonthEl&&selMonthVal)selMonthEl.value=selMonthVal;
-
-  // 7. 데이터 + 자동 초기화 스크립트 주입 (head 맨 앞)
-  const dataScript=document.createElement('script');
-  dataScript.textContent=`
-(function(){
-  var _rows=${JSON.stringify(window._allRows)};
-  var _fname=${JSON.stringify(window._dashFname||'스냅샷')};
-  var _tgt=${JSON.stringify(TARGET_DATA)};
-  var _cosSel=${JSON.stringify([...(window._dashSelectedCos||new Set())])};
-  var _selMonth=${JSON.stringify(selMonthVal)};
-  document.addEventListener('DOMContentLoaded',function(){
-    // TARGET_DATA 복원
-    try{Object.assign(TARGET_DATA,_tgt);}catch(e){}
-    // grand 재계산
-    var g={tc:0,tcp:0,tq:0,tqp:0,wc:0,wcp:0,wq:0,wqp:0,lc:0,lcp:0,lq:0,lqp:0,mc:0,mcp:0,mq:0,mqp:0,rc:0,rcp:0,rq:0,rqp:0};
-    _rows.forEach(function(r){
-      g.tc+=r.tc||0;g.tcp+=r.tcp||0;g.tq+=r.tq||0;g.tqp+=r.tqp||0;
-      g.wc+=r.wc||0;g.wcp+=r.wcp||0;g.wq+=r.wq||0;g.wqp+=r.wqp||0;
-      g.lc+=r.lc||0;g.lcp+=r.lcp||0;g.lq+=r.lq||0;g.lqp+=r.lqp||0;
-      g.mc+=r.mc||0;g.mcp+=r.mcp||0;g.mq+=r.mq||0;g.mqp+=r.mqp||0;
-      g.rc+=r.rc||0;g.rcp+=r.rcp||0;g.rq+=r.rq||0;g.rqp+=r.rqp||0;
-    });
-    window._allRows=_rows;
-    window._dashFname=_fname;
-    renderAll(_rows,g,_fname);
-    dashInitCosFilter(_rows);
-    // 코스 필터 복원
-    if(_cosSel.length){
-      window._dashSelectedCos=new Set(_cosSel);
-      dashRerender();
-    }
-    if(typeof renderLowSalesPanel==='function')renderLowSalesPanel();
-    if(typeof renderHighSalesPanel==='function')renderHighSalesPanel();
-    // 목표 기준월 복원
-    if(_selMonth){
-      var sel=document.getElementById('sel-target-month');
-      if(sel){sel.value=_selMonth;if(typeof renderTargetKPI==='function')renderTargetKPI();}
-    }
-    // paddingTop 재계산
-    setTimeout(function(){
-      var nav=document.getElementById('top-nav'),pw=document.getElementById('panels-wrap');
-      if(nav&&pw)pw.style.paddingTop=nav.getBoundingClientRect().height+'px';
-    },100);
-  });
-})();`;
-  const headEl=clone.querySelector('head');
-  if(headEl)headEl.insertBefore(dataScript,headEl.firstChild);
-
-  // 8. 다운로드
-  try {
-    const html='<!DOCTYPE html>\n'+clone.outerHTML;
-    const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url; a.download='매출대시보드_'+stamp+'.html';
-    a.style.display='none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
-    showTgtToast('HTML 내보내기 완료 ✅ · '+stamp);
-  } catch(e) {
-    alert('HTML 내보내기 오류: ' + e.message);
-  }
-}
-
 function dashRerender(){
   const sel=window._dashSelectedCos;
   const indSel=window._dashSelectedInd;
@@ -5382,9 +5280,12 @@ function fbInit(){
     _fbAuth.onAuthStateChanged(function(user){
       if(user){
         _fbEmail=user.email||''; _fbReady=true;
+        var _pb=document.getElementById('btn-publish-data'); if(_pb) _pb.style.display='inline-flex';
+        loadSharedData();
         if(syncTeam()){ fbAttach(); } else { syncSetStatus('ok'); syncOpenTeamModal(); }
       } else {
         _fbReady=false; _fbEmail=''; fbDetach(); syncSetStatus('signin');
+        var _pb2=document.getElementById('btn-publish-data'); if(_pb2) _pb2.style.display='none';
       }
     });
   }catch(e){ syncSetStatus('err'); }
@@ -5444,6 +5345,66 @@ function fbPushKeys(keys){
   if(!Object.keys(upd).length) return;
   syncSetStatus('saving');
   fbMemosRef().update(upd).then(function(){ syncSetStatus('ok'); }).catch(function(){ syncSetStatus('err'); });
+}
+
+// ── 공유 데이터(엑셀): 관리자 게시 + 로그인 후 자동 로드 (캐싱) ──
+var _SHARED_CACHE_KEY='shared_data_cache_v1';
+function _encEmail(e){ return String(e||'').toLowerCase().replace(/\./g,','); }
+
+function applySharedData(d){
+  if(!d||!d.rows||!d.rows.length) return false;
+  try{
+    window._allRows=d.rows; window._dashFname=d.fname||'공유데이터';
+    if(typeof TARGET_DATA!=='undefined'){
+      for(var k in TARGET_DATA){ if(Object.prototype.hasOwnProperty.call(TARGET_DATA,k)) delete TARGET_DATA[k]; }
+      if(d.targets) Object.assign(TARGET_DATA, d.targets);
+    }
+    var grand=d.grand||{tc:0,tcp:0,lc:0,lcp:0,mc:0,mcp:0,rc:0,rcp:0,wc:0,wcp:0};
+    renderAll(d.rows, grand, window._dashFname);
+    if(typeof dashInitCosFilter==='function') dashInitCosFilter(d.rows);
+    if(typeof renderLowSalesPanel==='function') renderLowSalesPanel();
+    if(typeof renderHighSalesPanel==='function') renderHighSalesPanel();
+    var us=document.getElementById('upload-screen'); if(us) us.style.display='none';
+    var ld=document.getElementById('loading'); if(ld) ld.style.display='none';
+    var db=document.getElementById('dashboard'); if(db) db.style.display='block';
+    var tmw=document.getElementById('target-month-wrap'); if(tmw) tmw.style.display='flex';
+    var tuw=document.getElementById('tgt-upload-wrap'); if(tuw) tuw.style.display='flex';
+    var _tm=document.getElementById('sel-target-month'); if(_tm&&!_tm.value){ _tm.value=String(new Date().getMonth()+1); if(typeof renderTargetKPI==='function') renderTargetKPI(); }
+    setTimeout(function(){var nav=document.getElementById('top-nav'),pw=document.getElementById('panels-wrap');if(nav&&pw)pw.style.paddingTop=nav.getBoundingClientRect().height+'px';},60);
+    return true;
+  }catch(e){ if(window.console)console.error(e); return false; }
+}
+
+function loadSharedData(){
+  if(!_fbReady||!_fbDb) return;
+  _fbDb.ref('sharedData/updatedAt').once('value').then(function(snap){
+    var remoteAt=snap.val();
+    if(!remoteAt) return; // 아직 게시된 데이터 없음 → 업로드 화면 유지
+    var cache=null; try{ cache=JSON.parse(localStorage.getItem(_SHARED_CACHE_KEY)||'null'); }catch(e){}
+    if(cache && cache.updatedAt===remoteAt && cache.data){ applySharedData(cache.data); return; } // 캐시 사용(다운로드 없음)
+    _fbDb.ref('sharedData').once('value').then(function(s2){
+      var d=s2.val(); if(!d||!d.rows) return;
+      if(applySharedData(d)){ try{ localStorage.setItem(_SHARED_CACHE_KEY, JSON.stringify({updatedAt:d.updatedAt, data:d})); }catch(e){} }
+    }).catch(function(){});
+  }).catch(function(){});
+}
+
+function publishSharedData(){
+  if(!_fbReady){ alert('먼저 우하단 ☁️ 배지에서 Google 로그인하세요.'); return; }
+  if(!window._allRows||!window._allRows.length){ alert('먼저 엑셀 데이터를 업로드하세요. (상단 📂 파일 재업로드)'); return; }
+  if(!confirm('현재 데이터를 팀 전체에 게시할까요?\n모든 팀원이 로그인하면 이 데이터를 보게 됩니다.')) return;
+  var payload={
+    rows: window._allRows,
+    grand: (window.GDATA&&GDATA.grand)||null,
+    targets: (typeof TARGET_DATA!=='undefined'?TARGET_DATA:{})||{},
+    fname: window._dashFname||'공유데이터',
+    updatedAt: new Date().toISOString(),
+    updatedBy: _fbEmail||''
+  };
+  _fbDb.ref('sharedData').set(payload).then(function(){
+    try{ localStorage.setItem(_SHARED_CACHE_KEY, JSON.stringify({updatedAt:payload.updatedAt, data:payload})); }catch(e){}
+    alert('팀 전체에 게시되었습니다. ('+payload.rows.length+'행)');
+  }).catch(function(e){ alert('게시 실패 — 관리자 권한이 있어야 게시할 수 있습니다.\n'+((e&&e.message)||'')); });
 }
 
 // 상태 배지
