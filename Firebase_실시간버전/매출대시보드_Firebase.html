@@ -418,7 +418,7 @@ tbody td{padding:8px 10px;color:#202124;vertical-align:middle}
       </div>
       <div class="tcard">
         <h3>제품군 종합 요약</h3><div class="sub2">매출액 기준 정렬</div>
-        <table><thead><tr><th>순위</th><th>제품군</th><th>현재 매출액</th><th>비교 매출액</th><th>증감액</th><th>성장률</th><th style="text-align:right;background:#f0f5ff">아이템수(현재)</th><th style="text-align:right;background:#f0f5ff">아이템수(전년)</th><th style="text-align:right;background:#f0f5ff">증감</th><th>매출 비중</th></tr></thead>
+        <table><thead><tr><th>순위</th><th>제품군</th><th>현재 매출액</th><th>비교 매출액</th><th>증감액</th><th>성장률</th><th style="text-align:right;background:#eef7f0">거래처수</th><th style="text-align:right;background:#eef7f0">거래처수(전년)</th><th style="text-align:right;background:#eef7f0">증감</th><th style="text-align:right;background:#f0f5ff">아이템수(현재)</th><th style="text-align:right;background:#f0f5ff">아이템수(전년)</th><th style="text-align:right;background:#f0f5ff">증감</th><th>매출 비중</th></tr></thead>
         <tbody id="tb-grp-summary"></tbody></table>
       </div>
     </div>
@@ -1449,12 +1449,14 @@ function renderAll(rows,grand,fname){
   // 제품군 비교 막대: 현재 금액 + 비중 레이블
   mkChart('ch-grp-compare',{type:'bar',data:{labels:grpLabels,datasets:[{label:'현재',data:grpCur,backgroundColor:'#e94560',borderRadius:5},{label:'비교',data:grpCmp,backgroundColor:'#f4a0b0',borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:22}},plugins:{legend:{position:'top'},tooltip:{callbacks:{label:ctx=>{const pct=donutTotal?(ctx.raw/donutTotal*100).toFixed(1):0;const gr=growth(grpCur[ctx.dataIndex],grpCmp[ctx.dataIndex]);return[` ${ctx.dataset.label}: ${fmt(ctx.raw)}원`,ctx.datasetIndex===0?` 비중: ${pct}% / 성장: ${gr!==null?(gr>=0?'▲':'▼')+Math.abs(gr).toFixed(1)+'%':'신규'}`:``];}}}},scales:{y:{ticks:{callback:v=>fmt(v)},grid:{color:'#f0f2f5'}},x:{grid:{display:false}}},animation:{onComplete:function(){const ch=this;const ctx2=ch.ctx;ctx2.save();ctx2.font='bold 10px Malgun Gothic,Arial,sans-serif';ctx2.textAlign='center';const ds0=ch.getDatasetMeta(0);grpCur.forEach((v,i)=>{const bar=ds0.data[i];const pct=donutTotal?(v/donutTotal*100).toFixed(1):0;ctx2.fillStyle='#e94560';ctx2.fillText(pct+'%',bar.x,bar.y-5);});ctx2.restore();}}}});
 
+  const _gf=function(fld){var c={},p={};rows.forEach(function(r){if(!r.firm)return;if((r[fld]||0)>0)c[r.firm]=1;if((r[fld+'p']||0)>0)p[r.firm]=1;});return{c:Object.keys(c).length,p:Object.keys(p).length};};
+  const _fW=_gf('wc'),_fL=_gf('lc'),_fM=_gf('mc'),_fR=_gf('rc');
   document.getElementById('tb-grp-summary').innerHTML=[
-    {name:'전선',cur:grand.wc,cmp:grand.wcp,qty:grand.wq,iCnt:wireProds.filter(d=>d.cur>0).length,iPrv:wireProds.filter(d=>d.cmp>0).length},
-    {name:'조명',cur:grand.lc,cmp:grand.lcp,qty:grand.lq,iCnt:lightProds.filter(d=>d.cur>0).length,iPrv:lightProds.filter(d=>d.cmp>0).length},
-    {name:'부자재',cur:grand.mc,cmp:grand.mcp,qty:grand.mq,iCnt:matProds.filter(d=>d.cur>0).length,iPrv:matProds.filter(d=>d.cmp>0).length},
-    {name:'MRO',cur:grand.rc,cmp:grand.rcp,qty:grand.rq,iCnt:mroProds.filter(d=>d.cur>0).length,iPrv:mroProds.filter(d=>d.cmp>0).length},
-  ].map((d,i)=>{const diff=d.cur-d.cmp;const gr=growth(d.cur,d.cmp);const pct=grand.tc?d.cur/grand.tc*100:0;const idiff=d.iCnt-d.iPrv;const ic=d.iCnt||0,ip=d.iPrv||0;const iCol=idiff>0?'#0f9d58':idiff<0?'#d93025':'#5f6368';return`<tr><td>${rkSp(i)}</td><td><b>${d.name}</b></td><td>${fmtW(d.cur)}</td><td>${fmtW(d.cmp)}</td><td style="color:${diff>=0?'#27ae60':'#e74c3c'}">${diff>=0?'+':''}${Math.round(diff).toLocaleString()}원</td><td>${gRow(gr)}</td><td style="text-align:right;font-weight:700">${ic}개</td><td style="text-align:right;color:#80868b">${ip}개</td><td style="text-align:right;font-weight:700;color:${iCol}">${idiff>0?'+':''}${idiff}</td><td>${pbarHtml(pct,MULTI[i])}</td></tr>`;}).join('');
+    {name:'전선',cur:grand.wc,cmp:grand.wcp,qty:grand.wq,iCnt:wireProds.filter(d=>d.cur>0).length,iPrv:wireProds.filter(d=>d.cmp>0).length,fc:_fW.c,fp:_fW.p},
+    {name:'조명',cur:grand.lc,cmp:grand.lcp,qty:grand.lq,iCnt:lightProds.filter(d=>d.cur>0).length,iPrv:lightProds.filter(d=>d.cmp>0).length,fc:_fL.c,fp:_fL.p},
+    {name:'부자재',cur:grand.mc,cmp:grand.mcp,qty:grand.mq,iCnt:matProds.filter(d=>d.cur>0).length,iPrv:matProds.filter(d=>d.cmp>0).length,fc:_fM.c,fp:_fM.p},
+    {name:'MRO',cur:grand.rc,cmp:grand.rcp,qty:grand.rq,iCnt:mroProds.filter(d=>d.cur>0).length,iPrv:mroProds.filter(d=>d.cmp>0).length,fc:_fR.c,fp:_fR.p},
+  ].map((d,i)=>{const diff=d.cur-d.cmp;const gr=growth(d.cur,d.cmp);const pct=grand.tc?d.cur/grand.tc*100:0;const idiff=d.iCnt-d.iPrv;const ic=d.iCnt||0,ip=d.iPrv||0;const iCol=idiff>0?'#0f9d58':idiff<0?'#d93025':'#5f6368';const fc=d.fc||0,fp=d.fp||0,fdiff=fc-fp,fCol=fdiff>0?'#0f9d58':fdiff<0?'#d93025':'#5f6368';return`<tr><td>${rkSp(i)}</td><td><b>${d.name}</b></td><td>${fmtW(d.cur)}</td><td>${fmtW(d.cmp)}</td><td style="color:${diff>=0?'#27ae60':'#e74c3c'}">${diff>=0?'+':''}${Math.round(diff).toLocaleString()}원</td><td>${gRow(gr)}</td><td style="text-align:right;font-weight:700">${fc}개</td><td style="text-align:right;color:#80868b">${fp}개</td><td style="text-align:right;font-weight:700;color:${fCol}">${fdiff>0?'+':''}${fdiff}</td><td style="text-align:right;font-weight:700">${ic}개</td><td style="text-align:right;color:#80868b">${ip}개</td><td style="text-align:right;font-weight:700;color:${iCol}">${idiff>0?'+':''}${idiff}</td><td>${pbarHtml(pct,MULTI[i])}</td></tr>`;}).join('');
 
   // ── 전선 (상품 기준 4차트) ──
   document.getElementById('wire-desc').textContent=`전체 매출의 ${grand.tc?(grand.wc/grand.tc*100).toFixed(1):0}% | 총 ${wireProds.length}개 상품`;
