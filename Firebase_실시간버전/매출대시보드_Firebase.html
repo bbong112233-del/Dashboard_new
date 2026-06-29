@@ -2094,7 +2094,7 @@ function sortLsTable(sortKey){
   const rows=window._lsSorted;
   if(!rows||!rows.length)return;
   const st=window._lsSortState||{key:'tc',dir:-1};
-  const newDir=(st.key===sortKey)?-st.dir:-1;
+  const newDir=window._reapplySort?st.dir:((st.key===sortKey)?-st.dir:-1);
   window._lsSortState={key:sortKey,dir:newDir};
   const showCos=window._lsShowCos;
   const sorted2=[...rows].sort((a,b)=>{
@@ -2162,7 +2162,7 @@ function sortCatTable(tbId, sortKey){
   const cfg=(GDATA._catTables||{})[tbId];
   if(!cfg)return;
   const st=_catSort[tbId]||{key:'cur',dir:-1};
-  const newDir=(st.key===sortKey)?-st.dir:-1;
+  const newDir=window._reapplySort?st.dir:((st.key===sortKey)?-st.dir:-1);
   _catSort[tbId]={key:sortKey,dir:newDir};
   const sorted=[...cfg.data].sort((a,b)=>{
     if(sortKey==='gr'){if(a.gr==null&&b.gr==null)return 0;if(a.gr==null)return 1;if(b.gr==null)return -1;}
@@ -2193,7 +2193,7 @@ function sortRegTable(sortKey){
   const rows=GDATA.byReg;
   if(!rows||!rows.length)return;
   const st=_regSort;
-  const newDir=(st.key===sortKey)?-st.dir:-1;
+  const newDir=window._reapplySort?st.dir:((st.key===sortKey)?-st.dir:-1);
   _regSort.key=sortKey; _regSort.dir=newDir;
   const tgtMap=GDATA._regTgtMap||null;
   const total=(GDATA.grand||{}).tc||1;
@@ -2271,7 +2271,7 @@ function _renderIndBoard(type,idx){
 }
 function sortIndBoard(key,sortKey){
   var cfg=(window._indBoardData||{})[key];if(!cfg)return;
-  var newDir=cfg.sort.key===sortKey?-cfg.sort.dir:-1;
+  var newDir=window._reapplySort?cfg.sort.dir:(cfg.sort.key===sortKey?-cfg.sort.dir:-1);
   cfg.sort={key:sortKey,dir:newDir};
   var parts=key.split('_');
   _renderIndBoard(parts[0],parseInt(parts[1]));
@@ -2281,14 +2281,40 @@ function sortIndBoard(key,sortKey){
 document.addEventListener('click',function(e){
   const th=e.target.closest('.sort-th');
   if(!th)return;
+  var _tt=window._sortTouched||(window._sortTouched=new Set());
   // 업종군 보드 정렬
-  if(th.dataset.iboard){sortIndBoard(th.dataset.iboard,th.dataset.sort);return;}
+  if(th.dataset.iboard){_tt.add('ind:'+th.dataset.iboard);sortIndBoard(th.dataset.iboard,th.dataset.sort);return;}
   if(!th.dataset.tb)return;
-  if(th.dataset.tb==='region'){sortRegTable(th.dataset.sort);}
-  else if(th.dataset.tb==='ls'){sortLsTable(th.dataset.sort);}
-  else if(th.dataset.tb==='hs'){sortHsTable(th.dataset.sort);}
-  else{sortCatTable(th.dataset.tb,th.dataset.sort);}
+  if(th.dataset.tb==='region'){_tt.add('region');sortRegTable(th.dataset.sort);}
+  else if(th.dataset.tb==='ls'){_tt.add('ls');sortLsTable(th.dataset.sort);}
+  else if(th.dataset.tb==='hs'){_tt.add('hs');sortHsTable(th.dataset.sort);}
+  else{_tt.add('cat:'+th.dataset.tb);sortCatTable(th.dataset.tb,th.dataset.sort);}
 });
+
+// ── 메모/공지 동기화 시 사용자가 보던 정렬·탭 보존 (스냅샷/복원) ──
+window._reapplySort=false;
+window._snapView=function(){
+  var tt=window._sortTouched||new Set();
+  var snap={reg:null,cat:null,ind:null,ls:null,hs:null};
+  try{ if(tt.has('region')&&typeof _regSort!=='undefined') snap.reg={key:_regSort.key,dir:_regSort.dir}; }catch(_e){}
+  try{ if(typeof _catSort!=='undefined'){ Object.keys(_catSort).forEach(function(tb){ if(tt.has('cat:'+tb)) (snap.cat||(snap.cat={}))[tb]={key:_catSort[tb].key,dir:_catSort[tb].dir}; }); } }catch(_e){}
+  try{ var ib=window._indBoardData||{}; Object.keys(ib).forEach(function(k){ if(tt.has('ind:'+k)&&ib[k].sort) (snap.ind||(snap.ind={}))[k]={key:ib[k].sort.key,dir:ib[k].sort.dir}; }); }catch(_e){}
+  snap.ls={sel:[...(window._lsSelectedCos||[])], sort:(tt.has('ls')&&window._lsSortState)?{key:window._lsSortState.key,dir:window._lsSortState.dir}:null};
+  snap.hs={sel:[...(window._hsSelectedCos||[])], sort:(tt.has('hs')&&window._hsSortState)?{key:window._hsSortState.key,dir:window._hsSortState.dir}:null};
+  return snap;
+};
+window._restoreView=function(snap){
+  if(!snap)return;
+  window._reapplySort=true;
+  try{
+    if(snap.reg&&typeof _regSort!=='undefined'){ _regSort.key=snap.reg.key; _regSort.dir=snap.reg.dir; sortRegTable(snap.reg.key); }
+    if(snap.cat&&typeof _catSort!=='undefined'){ Object.keys(snap.cat).forEach(function(tb){ if((GDATA._catTables||{})[tb]){ _catSort[tb]={key:snap.cat[tb].key,dir:snap.cat[tb].dir}; sortCatTable(tb,snap.cat[tb].key); } }); }
+    if(snap.ind){ var ib=window._indBoardData||{}; Object.keys(snap.ind).forEach(function(k){ if(ib[k]){ ib[k].sort={key:snap.ind[k].key,dir:snap.ind[k].dir}; sortIndBoard(k,snap.ind[k].key); } }); }
+    if(snap.ls){ if(snap.ls.sel&&snap.ls.sel.length){ snap.ls.sel.forEach(function(c){ lsSwitchTab(c); }); } if(snap.ls.sort){ window._lsSortState={key:snap.ls.sort.key,dir:snap.ls.sort.dir}; sortLsTable(snap.ls.sort.key); } }
+    if(snap.hs){ if(snap.hs.sel&&snap.hs.sel.length){ snap.hs.sel.forEach(function(c){ hsSwitchTab(c); }); } if(snap.hs.sort){ window._hsSortState={key:snap.hs.sort.key,dir:snap.hs.sort.dir}; sortHsTable(snap.hs.sort.key); } }
+  }catch(_e){}
+  window._reapplySort=false;
+};
 
 // ── 드릴 팝업 정렬 공용 렌더러 ──
 // 정렬 헤더 <th> 생성 헬퍼
@@ -3461,7 +3487,7 @@ function sortHsTable(sortKey){
   const rows=window._hsSorted;
   if(!rows||!rows.length)return;
   const st=window._hsSortState||{key:'tc',dir:-1};
-  const newDir=(st.key===sortKey)?-st.dir:-1;
+  const newDir=window._reapplySort?st.dir:((st.key===sortKey)?-st.dir:-1);
   window._hsSortState={key:sortKey,dir:newDir};
   const showCos=window._hsShowCos;
   const sorted2=[...rows].sort((a,b)=>{
@@ -5394,13 +5420,11 @@ var _memoSyncToastT=0;
 function syncRefreshUI(){
   try{
     window._suppressTgtToast=true;
-    var lsPanel=document.getElementById('panel-lowsales');
-    var hsPanel=document.getElementById('panel-highsales');
-    if(lsPanel&&lsPanel.classList.contains('active')&&window._lsFirms) lsSwitchTab('전체');
-    if(hsPanel&&hsPanel.classList.contains('active')&&window._hsFirms) hsSwitchTab('전체');
+    var _snap=(typeof window._snapView==='function')?window._snapView():null;
     var memoPanel=document.getElementById('panel-memo');
     if(memoPanel&&memoPanel.classList.contains('active')&&window.renderMemoSheet) window.renderMemoSheet();
     if(window._allRows&&window._allRows.length&&typeof dashRerender==='function') dashRerender();
+    if(_snap&&typeof window._restoreView==='function') window._restoreView(_snap);
     window._suppressTgtToast=false;
     var _now=Date.now();
     if(typeof showTgtToast==='function' && _now-_memoSyncToastT>3000){ _memoSyncToastT=_now; showTgtToast('팀 메모·공지가 동기화됐어요'); }
