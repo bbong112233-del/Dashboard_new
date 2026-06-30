@@ -4624,7 +4624,7 @@ window.renderMemoSheet = function(){
 
   // region_ 키 분류 보정용: 거래처/코스 판별맵 (데이터 동일 시 캐시 재사용)
   var _info = (function(){
-    var _grows = (typeof GDATA!=='undefined' && GDATA.allRows && GDATA.allRows.length) ? GDATA.allRows : (window._allRows||[]);
+    var _grows = (window._allRows && window._allRows.length) ? window._allRows : ((typeof GDATA!=='undefined' && GDATA.allRows) ? GDATA.allRows : []);
     if(window._mfiSrc===_grows && window._mfiCache) return window._mfiCache;
     var _fi={}, _cs={};
     try{
