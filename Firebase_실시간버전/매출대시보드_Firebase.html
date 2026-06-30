@@ -4021,7 +4021,13 @@ window.prodSearchGo=prodSearchGo;
 
 
 // ══ 🏷 브랜드별 현황 (매출액 목표 = 전년매출 × 1.3) ══════════════
-function _brandRows(){ return (typeof GDATA!=='undefined' && GDATA.allRows && GDATA.allRows.length) ? GDATA.allRows : (window._allRows||[]); }
+function _brandRows(){
+  var all=(window._allRows&&window._allRows.length)?window._allRows:((typeof GDATA!=='undefined'&&GDATA.allRows)?GDATA.allRows:[]);
+  var sel=window._dashSelectedCos, ind=window._dashSelectedInd;
+  var out=(sel&&sel.size>0)?all.filter(function(r){return sel.has((r.cos||'').trim());}):all;
+  if(ind&&ind.size>0) out=out.filter(function(r){return ind.has((r.ind||'').trim());});
+  return out;
+}
 function _brandAgg(rows){
   var cur=0,cmp=0,fc={},fp={};
   rows.forEach(function(r){
@@ -4567,6 +4573,11 @@ function dashRerender(){
   // 저매출/고매출도 메인 코스 필터와 동기화 (GDATA.allRows가 이미 필터된 상태)
   if(typeof renderLowSalesPanel==='function')renderLowSalesPanel();
   if(typeof renderHighSalesPanel==='function')renderHighSalesPanel();
+  // 브랜드/카테고리 시트가 활성화되어 있으면 코스 필터 동기화
+  const _bPanel=document.getElementById('panel-brand');
+  if(_bPanel&&_bPanel.classList.contains('active')&&typeof window.renderBrandSheet==='function')window.renderBrandSheet();
+  const _cPanel=document.getElementById('panel-category');
+  if(_cPanel&&_cPanel.classList.contains('active')&&typeof window.renderCategorySheet==='function')window.renderCategorySheet();
   // 휴면 패널이 활성화되어 있으면 코스 필터 동기화
   const _dmPanel=document.getElementById('panel-dormant');
   if(_dmPanel&&_dmPanel.classList.contains('active')&&typeof window.renderDormantPanel==='function')window.renderDormantPanel();
