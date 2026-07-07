@@ -1370,33 +1370,30 @@ function renderAll(rows,grand,fname){
 
   const totalGr=growth(grand.tc,grand.tcp)||0;
 
-  // ── 집계 ──
-  const byReg  =agg(rows,r=>r.cos,'tc','tcp','tq','tqp');
-  // 코스별 거래처 수 집계 (현재/전년)
-  const _cosFirmCur={},_cosFirmPrv={};
-  rows.forEach(r=>{
-    if(!r.cos||!r.firm)return;
-    if(r.tc>0){if(!_cosFirmCur[r.cos])_cosFirmCur[r.cos]=new Set();_cosFirmCur[r.cos].add(r.firm);}
-    if(r.tcp>0){if(!_cosFirmPrv[r.cos])_cosFirmPrv[r.cos]=new Set();_cosFirmPrv[r.cos].add(r.firm);}
-  });
-  byReg.forEach(d=>{d.firmCnt=(_cosFirmCur[d.name]||{size:0}).size;d.firmCntP=(_cosFirmPrv[d.name]||{size:0}).size;});
-  // 코스별 취급 상품 수 집계 (현재/전년)
-  const _cosItemCur={},_cosItemPrv={};
-  rows.forEach(r=>{
-    if(!r.cos||!r.prod)return;
-    if(r.tc>0){if(!_cosItemCur[r.cos])_cosItemCur[r.cos]=new Set();_cosItemCur[r.cos].add(r.prod);}
-    if(r.tcp>0){if(!_cosItemPrv[r.cos])_cosItemPrv[r.cos]=new Set();_cosItemPrv[r.cos].add(r.prod);}
-  });
-  byReg.forEach(d=>{d.itemCnt=(_cosItemCur[d.name]||{size:0}).size;d.itemCntP=(_cosItemPrv[d.name]||{size:0}).size;});
-  const byInd  =agg(rows,r=>r.ind,'tc','tcp','tq','tqp');
-  const byProd =agg(rows,r=>r.prod,'tc','tcp','tq','tqp');
-  const byCat  =agg(rows,r=>r.cat,'tc','tcp','tq','tqp');
-
-  const wireRows   =rows.filter(r=>r.wc>0||r.wcp>0);
-  const lightRows  =rows.filter(r=>r.lc>0||r.lcp>0);
-  const matRows    =rows.filter(r=>r.mc>0||r.mcp>0);
-  const mroRows    =rows.filter(r=>r.rc>0||r.rcp>0);
-  const nonWireRows=rows.filter(r=>r.lc>0||r.lcp>0||r.mc>0||r.mcp>0||r.rc>0||r.rcp>0);
+  // ── 집계 (단일 패스: byReg/byInd/byProd/byCat + 제품군 부분집합을 한 번의 루프로) ──
+  const _mReg={},_mInd={},_mProd={},_mCat={};
+  const wireRows=[],lightRows=[],matRows=[],mroRows=[],nonWireRows=[];
+  const _aggAcc=function(map,k,r){
+    if(!k)return;
+    let e=map[k]; if(!e){e=map[k]={name:k,cur:0,cmp:0,qty:0,qtyp:0,_iC:new Set(),_iP:new Set(),_fC:new Set(),_fP:new Set()};}
+    const cv=r.tc||0,pv=r.tcp||0;
+    e.cur+=cv; e.cmp+=pv; e.qty+=r.tq||0; e.qtyp+=r.tqp||0;
+    if(cv>0&&r.prod)e._iC.add(r.prod); if(pv>0&&r.prod)e._iP.add(r.prod);
+    if(cv>0&&r.firm)e._fC.add(r.firm); if(pv>0&&r.firm)e._fP.add(r.firm);
+  };
+  for(let _i=0;_i<rows.length;_i++){
+    const r=rows[_i];
+    _aggAcc(_mReg,r.cos,r); _aggAcc(_mInd,r.ind,r); _aggAcc(_mProd,r.prod,r); _aggAcc(_mCat,r.cat,r);
+    if(r.wc>0||r.wcp>0)wireRows.push(r);
+    if(r.lc>0||r.lcp>0)lightRows.push(r);
+    if(r.mc>0||r.mcp>0)matRows.push(r);
+    if(r.rc>0||r.rcp>0)mroRows.push(r);
+    if(r.lc>0||r.lcp>0||r.mc>0||r.mcp>0||r.rc>0||r.rcp>0)nonWireRows.push(r);
+  }
+  const _aggFin=function(map){ return Object.values(map).map(d=>({...d,gr:growth(d.cur,d.cmp),iCnt:d._iC.size,iPrv:d._iP.size,firmCnt:d._fC.size,firmPrv:d._fP.size})).sort((a,b)=>b.cur-a.cur); };
+  const byReg=_aggFin(_mReg), byInd=_aggFin(_mInd), byProd=_aggFin(_mProd), byCat=_aggFin(_mCat);
+  // 코스별 거래처수/상품수(전년) 필드명 매핑 (agg가 이미 계산한 firmPrv/iPrv와 동일)
+  byReg.forEach(d=>{ d.firmCntP=d.firmPrv; d.itemCnt=d.iCnt; d.itemCntP=d.iPrv; });
 
   // Store row references for drill-down modal
   GDATA.wireRows=wireRows; GDATA.lightRows=lightRows; GDATA.matRows=matRows; GDATA.mroRows=mroRows;
