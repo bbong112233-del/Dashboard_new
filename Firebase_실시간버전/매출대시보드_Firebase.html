@@ -1861,41 +1861,62 @@ function handleFile(file){
     reader.onload=function(e){
       setStep(1);
       setTimeout(()=>{
-        try{
-          setStep(2);
-          const wb=XLSX.read(e.target.result,{type:'array',cellDates:false});
-          const{rows,grand}=parseExcel(wb);
-          if(rows.length===0){
-            document.getElementById('loading').style.display='none';
-            if(dz)dz.classList.remove('file-selected');
-            if(fpc)fpc.classList.remove('show');
-            alert('데이터를 찾을 수 없습니다. 피벗 형식의 Excel 파일을 업로드해 주세요.');
-            return;
-          }
-          window._allRows=rows; window._dashFname=file.name;
-          renderAll(rows,grand,file.name);
-          dashInitCosFilter(rows);
-          setStep(3);
-          const stEl=document.getElementById('fpc-status-txt');
-          if(stEl)stEl.textContent='분석 완료 ✅';
-          setTimeout(()=>{
-            document.getElementById('loading').style.display='none';
-            document.getElementById('upload-screen').style.display='none';
-            document.getElementById('dashboard').style.display='block';
-            document.getElementById('target-month-wrap').style.display='flex';
-            (function(){var _tm=document.getElementById('sel-target-month'); if(_tm&&!_tm.value){ _tm.value=String(new Date().getMonth()+1); if(typeof renderTargetKPI==='function') renderTargetKPI(); }})();
-            document.getElementById('tgt-upload-wrap').style.display='flex';
-            setTimeout(function(){var nav=document.getElementById('top-nav');var pw=document.getElementById('panels-wrap');if(nav&&pw)pw.style.paddingTop=nav.getBoundingClientRect().height+'px';},30);
-            // 저매출/고매출 패널은 대시보드 표시 후 백그라운드 렌더 (초기 로딩 체감 단축)
-            setTimeout(function(){ try{ if(typeof renderLowSalesPanel==='function')renderLowSalesPanel(); if(typeof renderHighSalesPanel==='function')renderHighSalesPanel(); }catch(_e){} },0);
-          },500);
-        }catch(err){
+        setStep(2);
+        var _buf=e.target.result;
+        var _parseError=function(err){
           document.getElementById('loading').style.display='none';
           if(dz)dz.classList.remove('file-selected');
           if(fpc)fpc.classList.remove('show');
-          alert('파일 처리 중 오류가 발생했습니다.\n'+err.message);
+          alert('파일 처리 중 오류가 발생했습니다.\n'+((err&&err.message)||err));
           console.error(err);
-        }
+        };
+        var _afterParse=function(rows,grand){
+          try{
+            if(!rows||rows.length===0){
+              document.getElementById('loading').style.display='none';
+              if(dz)dz.classList.remove('file-selected');
+              if(fpc)fpc.classList.remove('show');
+              alert('데이터를 찾을 수 없습니다. 피벗 형식의 Excel 파일을 업로드해 주세요.');
+              return;
+            }
+            window._allRows=rows; window._dashFname=file.name;
+            renderAll(rows,grand,file.name);
+            dashInitCosFilter(rows);
+            setStep(3);
+            const stEl=document.getElementById('fpc-status-txt');
+            if(stEl)stEl.textContent='분석 완료 ✅';
+            setTimeout(()=>{
+              document.getElementById('loading').style.display='none';
+              document.getElementById('upload-screen').style.display='none';
+              document.getElementById('dashboard').style.display='block';
+              document.getElementById('target-month-wrap').style.display='flex';
+              (function(){var _tm=document.getElementById('sel-target-month'); if(_tm&&!_tm.value){ _tm.value=String(new Date().getMonth()+1); if(typeof renderTargetKPI==='function') renderTargetKPI(); }})();
+              document.getElementById('tgt-upload-wrap').style.display='flex';
+              setTimeout(function(){var nav=document.getElementById('top-nav');var pw=document.getElementById('panels-wrap');if(nav&&pw)pw.style.paddingTop=nav.getBoundingClientRect().height+'px';},30);
+              // 저매출/고매출 패널은 대시보드 표시 후 백그라운드 렌더 (초기 로딩 체감 단축)
+              setTimeout(function(){ try{ if(typeof renderLowSalesPanel==='function')renderLowSalesPanel(); if(typeof renderHighSalesPanel==='function')renderHighSalesPanel(); }catch(_e){} },0);
+            },500);
+          }catch(err){ _parseError(err); }
+        };
+        var _syncParse=function(){ try{ const wb=XLSX.read(_buf,{type:'array',cellDates:false}); const pr=parseExcel(wb); _afterParse(pr.rows,pr.grand); }catch(err){ _parseError(err); } };
+        // 백그라운드 스레드(Web Worker)로 파싱 → 화면 안 멈춤. 실패 시 동기 파싱으로 폴백.
+        var _wStarted=false;
+        try{
+          if(typeof Worker!=='undefined' && typeof URL!=='undefined' && URL.createObjectURL){
+            var _xlsxUrl='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+            var _wsrc=['self.onmessage=function(ev){try{importScripts("'+_xlsxUrl+'");var wb=XLSX.read(ev.data,{type:"array",cellDates:false});var __pe=',
+              parseExcel.toString(),
+              ';var out=__pe(wb);self.postMessage({ok:true,rows:out.rows,grand:out.grand});}catch(err){self.postMessage({ok:false,error:String((err&&err.message)||err)});}};'].join('');
+            var _wurl=URL.createObjectURL(new Blob([_wsrc],{type:'application/javascript'}));
+            var _w=new Worker(_wurl);
+            var _done=false;
+            _wStarted=true;
+            _w.onmessage=function(m){ if(_done)return; _done=true; try{URL.revokeObjectURL(_wurl);}catch(_g){} try{_w.terminate();}catch(_g){} if(m.data&&m.data.ok){ _afterParse(m.data.rows,m.data.grand); } else { console.warn('worker 파싱 실패, 동기 폴백:', m.data&&m.data.error); _syncParse(); } };
+            _w.onerror=function(er){ if(_done)return; _done=true; try{URL.revokeObjectURL(_wurl);}catch(_g){} try{_w.terminate();}catch(_g){} console.warn('worker 오류, 동기 폴백', er&&er.message); _syncParse(); };
+            _w.postMessage(_buf);
+          }
+        }catch(_we){ _wStarted=false; }
+        if(!_wStarted) _syncParse();
       },80);
     };
     reader.onerror=()=>{
