@@ -4553,6 +4553,18 @@ function _updateCosFilterUI(){
   });
 }
 
+function _dashFilterToastMsg(){
+  var cs=window._dashSelectedCos, is=window._dashSelectedInd, parts=[];
+  if(cs&&cs.size>0){
+    var pA=window._dashPartA||[], pB=window._dashPartB||[], arr=[];
+    cs.forEach(function(c){arr.push(c);});
+    if(pA.length>0 && arr.length===pA.length && pA.every(function(c){return cs.has(c);})) parts.push('A파트');
+    else if(pB.length>0 && arr.length===pB.length && pB.every(function(c){return cs.has(c);})) parts.push('B파트');
+    else parts.push(arr.join(', '));
+  }
+  if(is&&is.size>0){ var ia=[]; is.forEach(function(c){ia.push(c);}); parts.push(ia.join(', ')); }
+  return parts.length ? (parts.join(' · ')+' 기준으로 업데이트 됐어요') : '전체 기준으로 업데이트 됐어요';
+}
 function dashSwitchCosPart(part){
   const sel=window._dashSelectedCos||(window._dashSelectedCos=new Set());
   const list=(part==='A'?window._dashPartA:window._dashPartB)||[];
@@ -4561,7 +4573,10 @@ function dashSwitchCosPart(part){
   sel.clear();
   if(!allSel)list.forEach(c=>sel.add(c));
   _updateCosFilterUI();
+  window._suppressTgtToast=true;
   dashRerender();
+  window._suppressTgtToast=false;
+  if(typeof showTgtToast==='function') showTgtToast(_dashFilterToastMsg());
 }
 
 function dashSwitchCos(cos){
@@ -4569,14 +4584,20 @@ function dashSwitchCos(cos){
   if(cos==='전체'){sel.clear();}
   else{if(sel.has(cos))sel.delete(cos);else sel.add(cos);}
   _updateCosFilterUI();
+  window._suppressTgtToast=true;
   dashRerender();
+  window._suppressTgtToast=false;
+  if(typeof showTgtToast==='function') showTgtToast(_dashFilterToastMsg());
 }
 
 function dashSwitchInd(ind){
   const sel=window._dashSelectedInd||(window._dashSelectedInd=new Set());
   if(sel.has(ind))sel.delete(ind);else sel.add(ind);
   _updateCosFilterUI();
+  window._suppressTgtToast=true;
   dashRerender();
+  window._suppressTgtToast=false;
+  if(typeof showTgtToast==='function') showTgtToast(_dashFilterToastMsg());
 }
 
 // ══ HTML 완전 기능 내보내기 ══
