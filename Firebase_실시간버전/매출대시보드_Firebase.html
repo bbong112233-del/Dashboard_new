@@ -1211,6 +1211,7 @@ function tRowD(i,name,cur,cmp,qty,total,color,group,iCnt,iPrv,firmCnt,firmPrv){
 
 // ── CHART REGISTRY ──
 const CHARTS={};
+if(typeof Chart!=='undefined'){ try{ Chart.defaults.animation.duration=0; Chart.defaults.devicePixelRatio=Math.min(window.devicePixelRatio||1,1.5); }catch(_e){} }
 function mkChart(id,cfg){
   // 기존 인스턴스 파괴 — Chart.js 레지스트리도 함께 정리해 캔버스 충돌 방지
   if(CHARTS[id]){try{CHARTS[id].destroy();}catch(e){} delete CHARTS[id];}
@@ -1871,8 +1872,6 @@ function handleFile(file){
           window._allRows=rows; window._dashFname=file.name;
           renderAll(rows,grand,file.name);
           dashInitCosFilter(rows);
-          if(typeof renderLowSalesPanel==='function')renderLowSalesPanel();
-          if(typeof renderHighSalesPanel==='function')renderHighSalesPanel();
           setStep(3);
           const stEl=document.getElementById('fpc-status-txt');
           if(stEl)stEl.textContent='분석 완료 ✅';
@@ -1884,6 +1883,8 @@ function handleFile(file){
             (function(){var _tm=document.getElementById('sel-target-month'); if(_tm&&!_tm.value){ _tm.value=String(new Date().getMonth()+1); if(typeof renderTargetKPI==='function') renderTargetKPI(); }})();
             document.getElementById('tgt-upload-wrap').style.display='flex';
             setTimeout(function(){var nav=document.getElementById('top-nav');var pw=document.getElementById('panels-wrap');if(nav&&pw)pw.style.paddingTop=nav.getBoundingClientRect().height+'px';},30);
+            // 저매출/고매출 패널은 대시보드 표시 후 백그라운드 렌더 (초기 로딩 체감 단축)
+            setTimeout(function(){ try{ if(typeof renderLowSalesPanel==='function')renderLowSalesPanel(); if(typeof renderHighSalesPanel==='function')renderHighSalesPanel(); }catch(_e){} },0);
           },500);
         }catch(err){
           document.getElementById('loading').style.display='none';
