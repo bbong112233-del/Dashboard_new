@@ -1459,6 +1459,8 @@ function renderAll(rows,grand,fname){
     {name:'MRO',cur:grand.rc,cmp:grand.rcp,qty:grand.rq,iCnt:mroProds.filter(d=>d.cur>0).length,iPrv:mroProds.filter(d=>d.cmp>0).length,fc:_fR.c,fp:_fR.p},
   ].map((d,i)=>{const diff=d.cur-d.cmp;const gr=growth(d.cur,d.cmp);const pct=grand.tc?d.cur/grand.tc*100:0;const idiff=d.iCnt-d.iPrv;const ic=d.iCnt||0,ip=d.iPrv||0;const iCol=idiff>0?'#0f9d58':idiff<0?'#d93025':'#5f6368';const fc=d.fc||0,fp=d.fp||0,fdiff=fc-fp,fCol=fdiff>0?'#0f9d58':fdiff<0?'#d93025':'#5f6368';return`<tr><td>${rkSp(i)}</td><td><b>${d.name}</b></td><td>${fmtW(d.cur)}</td><td>${fmtW(d.cmp)}</td><td style="color:${diff>=0?'#27ae60':'#e74c3c'}">${diff>=0?'+':''}${Math.round(diff).toLocaleString()}원</td><td>${gRow(gr)}</td><td style="text-align:right;font-weight:700">${fc}개</td><td style="text-align:right;color:#80868b">${fp}개</td><td style="text-align:right;font-weight:700;color:${fCol}">${fdiff>0?'+':''}${fdiff}</td><td style="text-align:right;font-weight:700">${ic}개</td><td style="text-align:right;color:#80868b">${ip}개</td><td style="text-align:right;font-weight:700;color:${iCol}">${idiff>0?'+':''}${idiff}</td><td>${pbarHtml(pct,MULTI[i])}</td></tr>`;}).join('');
 
+  // ── 전선/조명/부자재/MRO (제품 탭 4개·16차트) : 지연 렌더링 ──
+  window._renderProductTabs=function(){
   // ── 전선 (상품 기준 4차트) ──
   document.getElementById('wire-desc').textContent=`전체 매출의 ${grand.tc?(grand.wc/grand.tc*100).toFixed(1):0}% | 총 ${wireProds.length}개 상품`;
   document.getElementById('wire-stats').innerHTML=grpStats(grand.wc,grand.wcp,grand.wq);
@@ -1532,6 +1534,10 @@ function renderAll(rows,grand,fname){
   const rTop=mroProds[0]||{name:'-',cur:0,cmp:0};
   document.getElementById('mro-insight').innerHTML=`<b>🛒 MRO 핵심 인사이트</b><br>총 ${mroProds.length}개 상품 · ${mroCats.length}개 카테고리 · 1위 상품: <b>${rTop.name}</b> (${fmtW(rTop.cur)}) · 성장률 ${gRow(growth(rTop.cur,rTop.cmp))}`;
 
+  window._productTabsDone=true;
+  };
+  window._productTabsDone=false;
+  (function(){ var _p=['panel-wire','panel-light','panel-mat','panel-mro']; if(_p.some(function(id){var el=document.getElementById(id);return el&&el.classList.contains('active');})) window._renderProductTabs(); })();
   // ── 지역별 ──
   const regS=byReg.slice(0,20);
   const topReg=regS[0]||{name:'-',cur:0,cmp:0};const botReg=[...regS].sort((a,b)=>(a.gr||0)-(b.gr||0))[0]||{name:'-',gr:0};
@@ -1922,6 +1928,8 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
     t.classList.add('active');
     document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+    // 지연 렌더링: 제품 탭(전선/조명/부자재/MRO) 첫 진입 시 차트 생성
+    if(['wire','light','mat','mro'].indexOf(t.dataset.tab)>=0 && !window._productTabsDone && typeof window._renderProductTabs==='function'){ window._renderProductTabs(); }
   });
 });
 // ── 상품별 탭 정렬 + 거래처 팝업 ──
