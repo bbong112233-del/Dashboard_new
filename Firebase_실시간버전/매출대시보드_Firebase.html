@@ -3076,6 +3076,11 @@ function dmToggleCheck(key){
   }
 }
 
+function dmSortByPrev(){
+  window._dmSort=window._dmSort||{dir:'desc'};
+  window._dmSort.dir=(window._dmSort.dir==='desc')?'asc':'desc';
+  if(typeof renderDormantPanel==='function')renderDormantPanel();
+}
 function dmToggleHideDone(){
   window._dmHideDone = !window._dmHideDone;
   const btn = document.getElementById('dm-hide-btn');
@@ -3127,7 +3132,9 @@ function renderDormantPanel(){
     contentEl.innerHTML='<div style="text-align:center;padding:40px;color:#9aa0a6;font-size:14px">올해 매출 0인 회원사가 없습니다</div>';
     return;
   }
-  const sorted=[...dormFirms].sort((a,b)=>b.tcp-a.tcp); // 전년매출 많은 순
+  window._dmSort=window._dmSort||{dir:'desc'};
+  const _dmDir=window._dmSort.dir;
+  const sorted=[...dormFirms].sort((a,b)=> _dmDir==='asc' ? (a.tcp-b.tcp) : (b.tcp-a.tcp));
   const dmHideDoneActive=!!window._dmHideDone;
   const esc=function(s){return(s||'').replace(/"/g,'&quot;');};
   const cosBadge=(_selCos&&_selCos.size>0)?' <span style="background:#e8f0fe;color:#1a73e8;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">'+([..._selCos].length===1?[..._selCos][0]:[..._selCos].length+'개 코스')+'</span>':'';
@@ -3136,12 +3143,12 @@ function renderDormantPanel(){
       '<h3 style="margin:0">휴면 회원사 목록 <span style="font-size:11px;color:#9aa0a6;font-weight:400">(올해 매출 0 · '+sorted.length+'개)</span>'+cosBadge+'</h3>'+
       '<div style="margin-left:auto"><button id="dm-hide-btn" onclick="dmToggleHideDone()" style="padding:5px 12px;border:1px solid #dadce0;border-radius:6px;font-size:12px;cursor:pointer;background:'+(dmHideDoneActive?'#e8f5e9':'#fff')+';color:'+(dmHideDoneActive?'#0f9d58':'#5f6368')+'">'+(dmHideDoneActive?'✅ 완료 보이기':'☑ 완료 숨기기')+'</button></div>'+
     '</div>'+
-    '<div class="sub2" style="margin-bottom:10px">거래처 클릭 시 상품군별 연간 비교 팝업 · 체크박스: 관리 완료 · 📝: 메모 · 전년매출 많은 순 정렬</div>'+
+    '<div class="sub2" style="margin-bottom:10px">거래처 클릭 시 상품군별 연간 비교 팝업 · 체크박스: 관리 완료 · 📝: 메모 · 전년매출 헤더 클릭 시 정렬</div>'+
     '<div class="ls-hs-scroll-wrap">'+
     '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'+
       '<th style="width:36px;text-align:center">완료</th>'+
       '<th>순위</th><th>거래처명</th><th>업종군</th><th>코스</th>'+
-      '<th style="text-align:right">전년매출</th>'+
+      '<th style="text-align:right;cursor:pointer;user-select:none" onclick="dmSortByPrev()" title="클릭: 전년매출 정렬">전년매출 '+(_dmDir==='asc'?'▲':'▼')+'</th>'+
       '<th style="text-align:right">⚡전선</th><th style="text-align:right">💡조명</th>'+
       '<th style="text-align:right">🔩부자재</th><th style="text-align:right">🛒MRO</th>'+
       '<th style="text-align:right">상품수(전년)</th>'+
