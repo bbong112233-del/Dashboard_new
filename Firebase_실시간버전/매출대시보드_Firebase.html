@@ -2383,16 +2383,19 @@ function _renderDrillTable(){
   // ── firmlist: 인사이트 거래처 목록 (정렬 지원) ──
   if(type==='firmlist'){
     const cols=[{key:'cur',label:'현재 매출'},{key:'cmp',label:'전년 매출'},{key:'diff',label:'증감액'},{key:'gr',label:'성장률'}];
-    document.getElementById('drill-thead').innerHTML='<tr><th>순위</th><th>거래처명</th>'+_drillSortThs(cols,st)+'</tr>';
+    document.getElementById('drill-thead').innerHTML='<tr><th>순위</th><th>거래처명</th>'+_drillSortThs(cols,st)+'<th style="text-align:center;width:44px">메모</th></tr>';
     document.getElementById('drill-tbody').innerHTML=sorted.map((d,i)=>{
       const diff=d.cur-d.cmp;
       const gr2=d.gr!=null?d.gr:growth(d.cur,d.cmp);
+      const _mk='region_'+d.name;
+      const _hasMemo=!!(window.LS_MGMT&&window.LS_MGMT[_mk]&&window.LS_MGMT[_mk].memo&&window.LS_MGMT[_mk].memo.trim());
       return'<tr><td>'+rkSp(i)+'</td><td><b>'+d.name+'</b></td>'+
         '<td style="text-align:right;font-weight:700">'+fmtW(d.cur)+'</td>'+
         '<td style="text-align:right;color:#80868b">'+fmtW(d.cmp)+'</td>'+
         '<td style="text-align:right;color:'+(diff>=0?'#27ae60':'#d93025')+'">'+(diff>=0?'+':'')+Math.round(diff).toLocaleString()+'원</td>'+
-        '<td style="text-align:right">'+gRow(gr2)+'</td></tr>';
-    }).join('')||'<tr><td colspan="6" style="text-align:center;padding:20px;color:#9aa0a6">데이터 없음</td></tr>';
+        '<td style="text-align:right">'+gRow(gr2)+'</td>'+
+        '<td style="text-align:center"><button class="drill-firm-memo" data-firm="'+v3_esc(d.name)+'" title="'+(_hasMemo?'메모 있음 · 클릭 편집':'메모 추가')+'" style="border:none;background:none;cursor:pointer;font-size:15px;padding:2px 4px;opacity:'+(_hasMemo?'1':'0.4')+'">📝</button></td></tr>';
+    }).join('')||'<tr><td colspan="7" style="text-align:center;padding:20px;color:#9aa0a6">데이터 없음</td></tr>';
     return;
   }
 
@@ -4039,9 +4042,42 @@ window.searchFirmMemo=function(firm, cos){
   input.addEventListener('keydown',function(e){ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)) save(); });
 };
 
+window.drillFirmMemo=function(firm){
+  var key='region_'+firm;
+  var prev=document.getElementById('ls-memo-modal'); if(prev) prev.remove();
+  var state=(window.LS_MGMT&&window.LS_MGMT[key])||{};
+  var modal=document.createElement('div'); modal.id='ls-memo-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:22px 24px;width:380px;max-width:92vw;box-shadow:0 8px 32px rgba(0,0,0,.22)">'
+    +'<div style="font-size:14px;font-weight:700;color:#202124;margin-bottom:12px">\ud83d\udcdd '+v3_esc(firm)+' \uba54\ubaa8</div>'
+    +'<textarea id="ls-memo-input" style="width:100%;height:110px;border:1px solid #dadce0;border-radius:8px;padding:10px;font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;outline:none" placeholder="\uac70\ub798\ucc98 \uba54\ubaa8\ub97c \uc785\ub825\ud558\uc138\uc694...">'+v3_esc(state.memo||'')+'</textarea>'
+    +'<div style="font-size:11px;color:#9aa0a6;margin-top:4px">\uba54\ubaa8 \uad00\ub9ac \uc2dc\ud2b8\uc5d0 \ud568\uaed8 \ud45c\uc2dc\u00b7\ub3d9\uae30\ud654\ub429\ub2c8\ub2e4 \u00b7 Ctrl+Enter \uc800\uc7a5</div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">'
+    +'<button id="ls-memo-del" style="margin-right:auto;padding:7px 14px;border:1px solid #fdd;border-radius:6px;background:#fff3f3;color:#d93025;cursor:pointer;font-size:12px">\uc0ad\uc81c</button>'
+    +'<button id="ls-memo-cancel" style="padding:7px 16px;border:1px solid #dadce0;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">\ucde8\uc18c</button>'
+    +'<button id="ls-memo-save" style="padding:7px 18px;border:none;border-radius:6px;background:#1a73e8;color:#fff;cursor:pointer;font-size:13px;font-weight:600">\uc800\uc7a5</button>'
+    +'</div></div>';
+  document.body.appendChild(modal);
+  var input=document.getElementById('ls-memo-input'); input.focus(); input.setSelectionRange(input.value.length,input.value.length);
+  function close(){ modal.remove(); }
+  function _refresh(){ if(typeof _renderDrillTable==='function'){ try{ _renderDrillTable(); }catch(_g){} } }
+  function save(){
+    if(!window.LS_MGMT[key]) window.LS_MGMT[key]={checked:false,memo:''};
+    window.LS_MGMT[key].memo=input.value.trim();
+    if(input.value.trim()){ window.LS_MGMT[key].memoDate=new Date().toISOString(); try{ window.LS_MGMT[key].memoBy=localStorage.getItem('memo_author_name')||''; }catch(e){} }
+    lsSave(); close(); _refresh();
+  }
+  document.getElementById('ls-memo-save').onclick=save;
+  document.getElementById('ls-memo-cancel').onclick=close;
+  document.getElementById('ls-memo-del').onclick=function(){ if(window.LS_MGMT[key]) window.LS_MGMT[key].memo=''; lsSave(); close(); _refresh(); };
+  modal.addEventListener('click',function(e){ if(e.target===modal) close(); });
+  input.addEventListener('keydown',function(e){ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)) save(); });
+};
+
 document.addEventListener('click', function(e){
   if(!e.target.closest) return;
   var t;
+  if(t=e.target.closest('.drill-firm-memo')){ window.drillFirmMemo(t.getAttribute('data-firm')); return; }
   if(t=e.target.closest('.srch-firm-memo')){ window.searchFirmMemo(t.getAttribute('data-firm'), t.getAttribute('data-cos')); return; }
   if(t=e.target.closest('.srch-firm-row')){ window._searchFirmDetailBack=window._searchLastFirmPicker||null; searchFirmDetail(t.getAttribute('data-firm'), t.getAttribute('data-cos')); return; }
   if(t=e.target.closest('.srch-prodfirm-row')){ window._searchFirmDetailBack=window._searchLastProdFirms||null; searchFirmDetail(t.getAttribute('data-firm'), t.getAttribute('data-cos')); return; }
