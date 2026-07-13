@@ -4148,6 +4148,49 @@ window.renderBrandSheet=function(){
   tb.innerHTML=html;
 };
 
+// ── 브랜드/카테고리 코스별 팝업 정렬 공용 렌더러 ──
+var _BRAND_MPOP_COLS=[{k:'cmp',label:'전년 매출액'},{k:'target',label:'매출액 목표'},{k:'cur',label:'매출액'},{k:'diff',label:'매출액 증감'},{k:'rate',label:'목표 달성율'},{k:'gr',label:'성장율'},{k:'firmPrev',label:'전년 거래처수'},{k:'firmCur',label:'거래처수'},{k:'fdiff',label:'거래처수 증감'}];
+var _CAT_MPOP_COLS=[{k:'cmp',label:'전년 매출액'},{k:'target',label:'매출액 목표'},{k:'cur',label:'매출액'},{k:'diff',label:'매출액 증감'},{k:'rate',label:'목표 달성율'},{k:'gr',label:'성장율'},{k:'firmPrev',label:'전년 거래처수'},{k:'ftarget',label:'거래처수 목표'},{k:'firmCur',label:'거래처수'},{k:'frate',label:'거래처 달성율'},{k:'fdiff',label:'거래처수 증감'}];
+function _mpopVal(m,key,mult){
+  var cmp=m.cmp||0,cur=m.cur||0,fp=m.firmPrev||0,fc=m.firmCur||0;
+  if(key==='cmp')return cmp;
+  if(key==='target')return cmp*mult;
+  if(key==='cur')return cur;
+  if(key==='diff')return cur-cmp;
+  if(key==='rate'){var t=cmp*mult;return t>0?(cur/t*100):-Infinity;}
+  if(key==='gr'){var g=growth(cur,cmp);return g==null?-Infinity:g;}
+  if(key==='firmPrev')return fp;
+  if(key==='ftarget')return fp*mult;
+  if(key==='firmCur')return fc;
+  if(key==='frate'){var ft=fp*mult;return ft>0?(fc/ft*100):-Infinity;}
+  if(key==='fdiff')return fc-fp;
+  return cur;
+}
+function _mpopThead(cols,st){
+  var h='<tr><th>코스</th>';
+  cols.forEach(function(c){
+    var active=st.key===c.k, arrow=active?(st.dir<0?' ▼':' ▲'):' ↕';
+    h+='<th class="mpop-sort-th" data-mpk="'+c.k+'" style="text-align:right;cursor:pointer;user-select:none;white-space:nowrap;'+(active?'color:#1a73e8':'')+'">'+c.label+'<span style="font-size:10px;color:#9aa0a6">'+arrow+'</span></th>';
+  });
+  return h+'</tr>';
+}
+function _mpopRender(){
+  var mp=window._mpop; if(!mp)return;
+  var st=window._mpopSort||(window._mpopSort={key:'cur',dir:-1});
+  var sorted=mp.cosList.slice().sort(function(a,b){ return st.dir*(_mpopVal(a.m,st.key,mp.mult)-_mpopVal(b.m,st.key,mp.mult)); });
+  var thd=document.getElementById('drill-thead'); if(thd)thd.innerHTML=_mpopThead(mp.cols,st);
+  var body=sorted.map(function(c){ return mp.metricsRow(c.name,c.m,mp.rowAttr(c)); }).join('');
+  body+=mp.metricsRow('📊 합계', mp.tot, 'style="font-weight:700;border-top:2px solid #e8eaed;background:#f8f9fa"');
+  var tb=document.getElementById('drill-tbody'); if(tb)tb.innerHTML=body;
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest)return;
+  var th=e.target.closest('.mpop-sort-th'); if(!th)return;
+  var k=th.getAttribute('data-mpk'); if(!k||!window._mpop)return;
+  var st=window._mpopSort||(window._mpopSort={key:'cur',dir:-1});
+  st.dir=(st.key===k)?-st.dir:-1; st.key=k;
+  _mpopRender();
+});
 function brandCosPopup(brand){
   var rows=_brandRows().filter(function(r){ return (r.brand||'').trim()===brand; });
   if(!rows.length){ alert('해당 브랜드 데이터가 없습니다.'); return; }
@@ -4164,10 +4207,9 @@ function brandCosPopup(brand){
     '<div class="drill-kpi-item" style="border-color:#80868b"><div class="dv">'+fmtW(tot.cmp)+'</div><div class="dl">전년 매출액</div></div>'+
     '<div class="drill-kpi-item" style="border-color:'+((totGr||0)>=0?'#27ae60':'#d93025')+'"><div class="dv">'+gRow(totGr)+'</div><div class="dl">성장율</div></div>'+
     '<div class="drill-kpi-item" style="border-color:'+(totRate!=null?_brandRateColor(totRate):'#9aa0a6')+'"><div class="dv" style="color:'+(totRate!=null?_brandRateColor(totRate):'#9aa0a6')+'">'+(totRate!=null?totRate.toFixed(1)+'%':'-')+'</div><div class="dl">목표 달성율</div></div>';
-  document.getElementById('drill-thead').innerHTML='<tr><th>코스</th><th style="text-align:right">전년 매출액</th><th style="text-align:right">매출액 목표</th><th style="text-align:right">매출액</th><th style="text-align:right">매출액 증감</th><th style="text-align:right">목표 달성율</th><th style="text-align:right">성장율</th><th style="text-align:right">전년 거래처수</th><th style="text-align:right">거래처수</th><th style="text-align:right">거래처수 증감</th></tr>';
-  var body=cosList.map(function(c){ return _brandMetricsRow(c.name, c.m, 'class="brand-cos-row" data-brand="'+v3_esc(brand)+'" data-cos="'+v3_esc(c.name)+'" style="cursor:pointer" title="클릭: 거래처·상품별 판매현황"'); }).join('');
-  body+=_brandMetricsRow('📊 합계', tot, 'style="font-weight:700;border-top:2px solid #e8eaed;background:#f8f9fa"');
-  document.getElementById('drill-tbody').innerHTML=body;
+  window._mpopSort={key:'cur',dir:-1};
+  window._mpop={cols:_BRAND_MPOP_COLS,mult:1.3,cosList:cosList,tot:tot,metricsRow:_brandMetricsRow,rowAttr:function(c){return 'class="brand-cos-row" data-brand="'+v3_esc(brand)+'" data-cos="'+v3_esc(c.name)+'" style="cursor:pointer" title="클릭: 거래처·상품별 판매현황"';}};
+  _mpopRender();
   _openDrillModal();
 }
 
@@ -4284,10 +4326,9 @@ function catCosPopup(cat){
     '<div class="drill-kpi-item" style="border-color:#80868b"><div class="dv">'+fmtW(tot.cmp)+'</div><div class="dl">전년 매출액</div></div>'+
     '<div class="drill-kpi-item" style="border-color:'+((totGr||0)>=0?'#27ae60':'#d93025')+'"><div class="dv">'+gRow(totGr)+'</div><div class="dl">성장율</div></div>'+
     '<div class="drill-kpi-item" style="border-color:'+(totRate!=null?_brandRateColor(totRate):'#9aa0a6')+'"><div class="dv" style="color:'+(totRate!=null?_brandRateColor(totRate):'#9aa0a6')+'">'+(totRate!=null?totRate.toFixed(1)+'%':'-')+'</div><div class="dl">목표 달성율</div></div>';
-  document.getElementById('drill-thead').innerHTML=_catThead('코스');
-  var body=cosList.map(function(c){ return _catMetricsRow(c.name, c.m, 'class="lcat-cos-row" data-cat="'+v3_esc(cat)+'" data-cos="'+v3_esc(c.name)+'" style="cursor:pointer" title="클릭: 거래처별 상품내역"'); }).join('');
-  body+=_catMetricsRow('📊 합계', tot, 'style="font-weight:700;border-top:2px solid #e8eaed;background:#f8f9fa"');
-  document.getElementById('drill-tbody').innerHTML=body;
+  window._mpopSort={key:'cur',dir:-1};
+  window._mpop={cols:_CAT_MPOP_COLS,mult:1.17,cosList:cosList,tot:tot,metricsRow:_catMetricsRow,rowAttr:function(c){return 'class="lcat-cos-row" data-cat="'+v3_esc(cat)+'" data-cos="'+v3_esc(c.name)+'" style="cursor:pointer" title="클릭: 거래처별 상품내역"';}};
+  _mpopRender();
   _openDrillModal();
 }
 
