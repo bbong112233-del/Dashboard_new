@@ -2882,6 +2882,7 @@ function renderLowSalesPanel(){
   // 메인 코스 필터(_dashSelectedCos) 적용
   const _selCos=window._dashSelectedCos;
   if(_selCos&&_selCos.size>0) allFirms=allFirms.filter(d=>_selCos.has((d.cos||'').trim()));
+  window._lsTotalFirms=allFirms.length;
   const lowFirms=allFirms.filter(d=>d.tc>=3000000&&d.tc<5000000);
   window._lsFirms=lowFirms;
 
@@ -2892,11 +2893,11 @@ function renderLowSalesPanel(){
     const gr=totPrev>0?((totCur-totPrev)/totPrev*100).toFixed(1):'-';
     const grColor=totCur>=totPrev?'#0f9d58':'#d93025';
     kpiEl.innerHTML=[
-      {label:'저매출 회원사',value:lowFirms.length+'개',sub:'올해 300~499만원',color:'#1a73e8'},
+      {label:'저매출 회원사',value:lowFirms.length+'개',sub:'올해 300~499만원',color:'#1a73e8',ratio:_firmRatio(lowFirms.length,allFirms.length)},
       {label:'현재 매출 합계',value:fmtW(totCur),sub:'전체 합산',color:'#202124'},
       {label:'전년 매출 합계',value:totPrev>0?fmtW(totPrev):'-',sub:'비교기간',color:'#80868b'},
       {label:'전년 대비 성장률',value:gr!=='-'?(totCur>=totPrev?'+':'')+gr+'%':'-',sub:'당기 vs 전년',color:totPrev>0?grColor:'#80868b'},
-    ].map(k=>'<div class="kpi-card"><div class="kv" style="color:'+k.color+'">'+k.value+'</div><div class="kl">'+k.label+'</div><div class="ks">'+k.sub+'</div></div>').join('');
+    ].map(k=>'<div class="kpi-card"><div class="kv" style="color:'+k.color+'">'+k.value+'</div><div class="kl">'+k.label+'</div><div class="ks">'+k.sub+'</div>'+(k.ratio?'<div class="ks" style="color:#1a73e8;font-weight:700;margin-top:3px">전체 회원사의 '+k.ratio+'%</div>':'')+'</div>').join('');
   }
 
   window._lsSelectedCos=new Set();
@@ -2941,11 +2942,11 @@ function lsSwitchTab(cos){
     const grColor=totCur>=totPrev?'#0f9d58':'#d93025';
     const subLabel=sel.size===0?'올해 300~499만원':[...sel].join('·')+' 코스 · 300~499만원';
     kpiEl.innerHTML=[
-      {label:'저매출 회원사',value:firms.length+'개',sub:subLabel,color:'#1a73e8'},
+      {label:'저매출 회원사',value:firms.length+'개',sub:subLabel,color:'#1a73e8',ratio:_firmRatio(firms.length,window._lsTotalFirms)},
       {label:'현재 매출 합계',value:fmtW(totCur),sub:'전체 합산',color:'#202124'},
       {label:'전년 매출 합계',value:totPrev>0?fmtW(totPrev):'-',sub:'비교기간',color:'#80868b'},
       {label:'전년 대비 성장률',value:gr!=='-'?(totCur>=totPrev?'+':'')+gr+'%':'-',sub:'당기 vs 전년',color:totPrev>0?(totCur>=totPrev?'#0f9d58':'#d93025'):'#80868b'},
-    ].map(k=>'<div class="kpi-card"><div class="kv" style="color:'+k.color+'">'+k.value+'</div><div class="kl">'+k.label+'</div><div class="ks">'+k.sub+'</div></div>').join('');
+    ].map(k=>'<div class="kpi-card"><div class="kv" style="color:'+k.color+'">'+k.value+'</div><div class="kl">'+k.label+'</div><div class="ks">'+k.sub+'</div>'+(k.ratio?'<div class="ks" style="color:#1a73e8;font-weight:700;margin-top:3px">전체 회원사의 '+k.ratio+'%</div>':'')+'</div>').join('');
   }
 
   const contentEl=document.getElementById('lowsales-content');
@@ -3247,6 +3248,7 @@ function gsToggleHideDone(){
     row.style.display = (window._gsHideDone && done) ? 'none' : '';
   });
 }
+function _firmRatio(n,total){ total=total||0; return total>0?(n/total*100).toFixed(1):'0'; }
 function renderGrowthPanel(){
   if(!GDATA.allRows||!GDATA.allRows.length)return;
   const firmMap={};
@@ -3265,6 +3267,7 @@ function renderGrowthPanel(){
   // 메인 코스 필터(_dashSelectedCos) 적용
   const _selCos=window._dashSelectedCos;
   if(_selCos&&_selCos.size>0) allFirms=allFirms.filter(d=>_selCos.has((d.cos||'').trim()));
+  window._gsTotalFirms=allFirms.length;
   const lowFirms=allFirms.filter(d=>d.tc<3000000);
   window._gsFirms=lowFirms;
 
@@ -3275,11 +3278,11 @@ function renderGrowthPanel(){
     const gr=totPrev>0?((totCur-totPrev)/totPrev*100).toFixed(1):'-';
     const grColor=totCur>=totPrev?'#0f9d58':'#d93025';
     kpiEl.innerHTML=[
-      {label:'성장 가능 회원사',value:lowFirms.length+'개',sub:'올해 300만원 미만',color:'#1a73e8'},
+      {label:'성장 가능 회원사',value:lowFirms.length+'개',sub:'올해 300만원 미만',color:'#1a73e8',ratio:_firmRatio(lowFirms.length,allFirms.length)},
       {label:'현재 매출 합계',value:fmtW(totCur),sub:'전체 합산',color:'#202124'},
       {label:'전년 매출 합계',value:totPrev>0?fmtW(totPrev):'-',sub:'비교기간',color:'#80868b'},
       {label:'전년 대비 성장률',value:gr!=='-'?(totCur>=totPrev?'+':'')+gr+'%':'-',sub:'당기 vs 전년',color:totPrev>0?grColor:'#80868b'},
-    ].map(k=>'<div class="kpi-card"><div class="kv" style="color:'+k.color+'">'+k.value+'</div><div class="kl">'+k.label+'</div><div class="ks">'+k.sub+'</div></div>').join('');
+    ].map(k=>'<div class="kpi-card"><div class="kv" style="color:'+k.color+'">'+k.value+'</div><div class="kl">'+k.label+'</div><div class="ks">'+k.sub+'</div>'+(k.ratio?'<div class="ks" style="color:#1a73e8;font-weight:700;margin-top:3px">전체 회원사의 '+k.ratio+'%</div>':'')+'</div>').join('');
   }
 
   window._gsSelectedCos=new Set();
@@ -3323,11 +3326,11 @@ function gsSwitchTab(cos){
     const grColor=totCur>=totPrev?'#0f9d58':'#d93025';
     const subLabel=sel.size===0?'올해 300만원 미만':[...sel].join('·')+' 코스 · 300만원 미만';
     kpiEl.innerHTML=[
-      {label:'성장 가능 회원사',value:firms.length+'개',sub:subLabel,color:'#1a73e8'},
+      {label:'성장 가능 회원사',value:firms.length+'개',sub:subLabel,color:'#1a73e8',ratio:_firmRatio(firms.length,window._gsTotalFirms)},
       {label:'현재 매출 합계',value:fmtW(totCur),sub:'전체 합산',color:'#202124'},
       {label:'전년 매출 합계',value:totPrev>0?fmtW(totPrev):'-',sub:'비교기간',color:'#80868b'},
       {label:'전년 대비 성장률',value:gr!=='-'?(totCur>=totPrev?'+':'')+gr+'%':'-',sub:'당기 vs 전년',color:totPrev>0?(totCur>=totPrev?'#0f9d58':'#d93025'):'#80868b'},
-    ].map(k=>'<div class="kpi-card"><div class="kv" style="color:'+k.color+'">'+k.value+'</div><div class="kl">'+k.label+'</div><div class="ks">'+k.sub+'</div></div>').join('');
+    ].map(k=>'<div class="kpi-card"><div class="kv" style="color:'+k.color+'">'+k.value+'</div><div class="kl">'+k.label+'</div><div class="ks">'+k.sub+'</div>'+(k.ratio?'<div class="ks" style="color:#1a73e8;font-weight:700;margin-top:3px">전체 회원사의 '+k.ratio+'%</div>':'')+'</div>').join('');
   }
 
   const contentEl=document.getElementById('growth-content');
@@ -3529,7 +3532,7 @@ function renderDormantPanel(){
       {label:'전년 매출 합계',value:totPrev>0?fmtW(totPrev):'-',sub:'작년 거래액(놓친 매출)',color:'#202124'},
       {label:'거래 이력 보유',value:withHist+'개',sub:'작년엔 거래 있었음',color:'#e67e22'},
       {label:'전체 대비 비율',value:ratio+'%',sub:'전체 회원사 중',color:'#1a73e8'},
-    ].map(k=>'<div class="kpi-card"><div class="kv" style="color:'+k.color+'">'+k.value+'</div><div class="kl">'+k.label+'</div><div class="ks">'+k.sub+'</div></div>').join('');
+    ].map(k=>'<div class="kpi-card"><div class="kv" style="color:'+k.color+'">'+k.value+'</div><div class="kl">'+k.label+'</div><div class="ks">'+k.sub+'</div>'+(k.ratio?'<div class="ks" style="color:#1a73e8;font-weight:700;margin-top:3px">전체 회원사의 '+k.ratio+'%</div>':'')+'</div>').join('');
   }
 
   const contentEl=document.getElementById('dormant-content');
@@ -3766,6 +3769,7 @@ function renderHighSalesPanel(){
   // 메인 코스 필터(_dashSelectedCos) 적용
   const _selCos=window._dashSelectedCos;
   if(_selCos&&_selCos.size>0) allFirms=allFirms.filter(d=>_selCos.has((d.cos||'').trim()));
+  window._hsTotalFirms=allFirms.length;
   const highFirms=allFirms.filter(d=>d.tc>=5000000);
   window._hsFirms=highFirms;
 
@@ -3776,11 +3780,11 @@ function renderHighSalesPanel(){
     const gr=totPrev>0?((totCur-totPrev)/totPrev*100).toFixed(1):'-';
     const grColor=totCur>=totPrev?'#0f9d58':'#d93025';
     kpiEl.innerHTML=[
-      {label:'고매출 회원사',value:highFirms.length+'개',sub:'올해 500만원 이상',color:'#e67e22'},
+      {label:'고매출 회원사',value:highFirms.length+'개',sub:'올해 500만원 이상',color:'#e67e22',ratio:_firmRatio(highFirms.length,allFirms.length)},
       {label:'현재 매출 합계',value:fmtW(totCur),sub:'전체 합산',color:'#202124'},
       {label:'전년 매출 합계',value:totPrev>0?fmtW(totPrev):'-',sub:'비교기간',color:'#80868b'},
       {label:'전년 대비 성장률',value:gr!=='-'?(totCur>=totPrev?'+':'')+gr+'%':'-',sub:'당기 vs 전년',color:totPrev>0?grColor:'#80868b'},
-    ].map(k=>'<div class="kpi-card"><div class="kv" style="color:'+k.color+'">'+k.value+'</div><div class="kl">'+k.label+'</div><div class="ks">'+k.sub+'</div></div>').join('');
+    ].map(k=>'<div class="kpi-card"><div class="kv" style="color:'+k.color+'">'+k.value+'</div><div class="kl">'+k.label+'</div><div class="ks">'+k.sub+'</div>'+(k.ratio?'<div class="ks" style="color:#1a73e8;font-weight:700;margin-top:3px">전체 회원사의 '+k.ratio+'%</div>':'')+'</div>').join('');
   }
 
   window._hsSelectedCos=new Set();
@@ -3823,11 +3827,11 @@ function hsSwitchTab(cos){
     const grColor=totCur>=totPrev?'#0f9d58':'#d93025';
     const subLabel=sel.size===0?'올해 500만원 이상':[...sel].join('·')+' 코스 · 500만원 이상';
     kpiEl.innerHTML=[
-      {label:'고매출 회원사',value:firms.length+'개',sub:subLabel,color:'#e67e22'},
+      {label:'고매출 회원사',value:firms.length+'개',sub:subLabel,color:'#e67e22',ratio:_firmRatio(firms.length,window._hsTotalFirms)},
       {label:'현재 매출 합계',value:fmtW(totCur),sub:'전체 합산',color:'#202124'},
       {label:'전년 매출 합계',value:totPrev>0?fmtW(totPrev):'-',sub:'비교기간',color:'#80868b'},
       {label:'전년 대비 성장률',value:gr!=='-'?(totCur>=totPrev?'+':'')+gr+'%':'-',sub:'당기 vs 전년',color:totPrev>0?(totCur>=totPrev?'#0f9d58':'#d93025'):'#80868b'},
-    ].map(k=>'<div class="kpi-card"><div class="kv" style="color:'+k.color+'">'+k.value+'</div><div class="kl">'+k.label+'</div><div class="ks">'+k.sub+'</div></div>').join('');
+    ].map(k=>'<div class="kpi-card"><div class="kv" style="color:'+k.color+'">'+k.value+'</div><div class="kl">'+k.label+'</div><div class="ks">'+k.sub+'</div>'+(k.ratio?'<div class="ks" style="color:#1a73e8;font-weight:700;margin-top:3px">전체 회원사의 '+k.ratio+'%</div>':'')+'</div>').join('');
   }
 
   const contentEl=document.getElementById('highsales-content');
