@@ -237,6 +237,9 @@ tbody td{padding:8px 10px;color:#202124;vertical-align:middle}
 .dash-ind-tab{padding:3px 11px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;background:#fef7e0;color:#b06000;border:1.5px solid transparent;transition:all .15s;white-space:nowrap}
 .dash-ind-tab.active{background:#f9ab00;color:#7a5800;border-color:#e67e22}
 .dash-ind-tab:hover:not(.active){background:#fde8b8}
+.dash-grp-tab{padding:3px 11px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;background:#e6f4ea;color:#137333;border:1.5px solid transparent;transition:all .15s;white-space:nowrap}
+.dash-grp-tab.active{background:#34a853;color:#fff;border-color:#0f9d58}
+.dash-grp-tab:hover:not(.active){background:#ceead6}
 .drill-sort-th{cursor:pointer;user-select:none;white-space:nowrap;text-align:right}
 .drill-sort-th::after{content:' ⇅';color:#adb5bd;font-size:11px;font-weight:400}
 .drill-sort-th.sort-desc{color:#1a73e8 !important;font-weight:700}
@@ -1947,6 +1950,12 @@ document.querySelectorAll('.tab').forEach(t=>{
     t.classList.add('active');
     document.getElementById('panel-'+t.dataset.tab).classList.add('active');
     // 지연 렌더링: 제품 탭(전선/조명/부자재/MRO) 첫 진입 시 차트 생성
+    // 제품군 전용 탭 진입 시 제품군 필터 해제 (필터 켜진 채 빈 화면 방지)
+    if(['wire','light','mat','mro'].indexOf(t.dataset.tab)>=0 && window._dashSelectedGrp && window._dashSelectedGrp.size>0){
+      window._dashSelectedGrp.clear();
+      if(typeof _updateCosFilterUI==='function')_updateCosFilterUI();
+      if(typeof dashRerender==='function'){ window._suppressTgtToast=true; dashRerender(); window._suppressTgtToast=false; if(typeof showTgtToast==='function')showTgtToast('제품군 필터가 해제되었습니다'); }
+    }
     if(['wire','light','mat','mro'].indexOf(t.dataset.tab)>=0 && !window._productTabsDone && typeof window._renderProductTabs==='function'){ window._renderProductTabs(); }
   });
 });
@@ -2516,7 +2525,7 @@ function renderTargetKPI(){
     totTgt.wt+=mo.wt||0;totTgt.lt+=mo.lt||0;totTgt.mt+=mo.mt||0;totTgt.rt+=mo.rt||0;
   });
   const totAll=totTgt.wt+totTgt.lt+totTgt.mt+totTgt.rt;
-  const g=GDATA.grand;
+  const g=window._grandNoGrp||GDATA.grand;
   const ovEl=document.getElementById('target-overview');
   if(ovEl)ovEl.innerHTML=totAll?`<div class="tgt-wrap"><div class="tgt-title">🎯 ${mn}월 목표 달성 현황</div><div class="tgt-grid">
     ${tgtCard('전체',g.tc,totAll)}
@@ -4606,14 +4615,19 @@ function dashInitCosFilter(rows){
     html+='<span class="dcf-label">🏭 업종군</span>';
     html+=indList.map(ind=>'<div class="dash-ind-tab" data-dindtab="'+ind.replace(/"/g,'&quot;')+'">'+ind+'</div>').join('');
   }
+  // ── 제품군 탭 ──
+  html+='<span class="dcf-sep" style="width:2px;background:#c5cae9;margin:0 6px"></span>';
+  html+='<span class="dcf-label">📦 제품군</span>';
+  html+=DASH_GRP_LIST.map(gp=>'<div class="dash-grp-tab" data-dgrptab="'+gp.k+'">'+gp.label+'</div>').join('');
   bar.innerHTML=html;
   bar.style.display='flex';
   // 핸들러 중복 방지: 이전 핸들러 제거 후 재등록
   if(bar._dcfHandler)bar.removeEventListener('click',bar._dcfHandler);
   bar._dcfHandler=function(e){
-    const t=e.target.closest('[data-dcostab],[data-dcospart],[data-dindtab]');
+    const t=e.target.closest('[data-dcostab],[data-dcospart],[data-dindtab],[data-dgrptab]');
     if(!t)return;
-    if(t.dataset.dindtab)dashSwitchInd(t.dataset.dindtab);
+    if(t.dataset.dgrptab)dashSwitchGrp(t.dataset.dgrptab);
+    else if(t.dataset.dindtab)dashSwitchInd(t.dataset.dindtab);
     else if(t.dataset.dcospart)dashSwitchCosPart(t.dataset.dcospart);
     else dashSwitchCos(t.dataset.dcostab);
   };
@@ -4635,6 +4649,11 @@ function _updateCosFilterUI(){
   document.querySelectorAll('.dash-ind-tab').forEach(t=>{
     if(t.dataset.dindtab)t.classList.toggle('active',indSel.has(t.dataset.dindtab));
   });
+  // 제품군 탭 활성화 업데이트
+  const grpSel=window._dashSelectedGrp||new Set();
+  document.querySelectorAll('.dash-grp-tab').forEach(t=>{
+    if(t.dataset.dgrptab)t.classList.toggle('active',grpSel.has(t.dataset.dgrptab));
+  });
 }
 
 function _dashFilterToastMsg(){
@@ -4647,6 +4666,8 @@ function _dashFilterToastMsg(){
     else parts.push(arr.join(', '));
   }
   if(is&&is.size>0){ var ia=[]; is.forEach(function(c){ia.push(c);}); parts.push(ia.join(', ')); }
+  var gs=window._dashSelectedGrp;
+  if(gs&&gs.size>0){ var ga=[]; (typeof DASH_GRP_LIST!=='undefined'?DASH_GRP_LIST:[]).forEach(function(gp){ if(gs.has(gp.k))ga.push(gp.label); }); if(ga.length)parts.push(ga.join(', ')); }
   return parts.length ? (parts.join(' · ')+' 기준으로 업데이트 됐어요') : '전체 기준으로 업데이트 됐어요';
 }
 function dashSwitchCosPart(part){
@@ -4674,6 +4695,24 @@ function dashSwitchCos(cos){
   if(typeof showTgtToast==='function') showTgtToast(_dashFilterToastMsg());
 }
 
+var DASH_GRP_LIST=[{k:'wire',label:'전선'},{k:'light',label:'조명'},{k:'mat',label:'부자재'},{k:'mro',label:'MRO'}];
+function _rowInGrp(r,sel){
+  if(sel.has('wire')&&((r.wc||0)>0||(r.wcp||0)>0))return true;
+  if(sel.has('light')&&((r.lc||0)>0||(r.lcp||0)>0))return true;
+  if(sel.has('mat')&&((r.mc||0)>0||(r.mcp||0)>0))return true;
+  if(sel.has('mro')&&((r.rc||0)>0||(r.rcp||0)>0))return true;
+  return false;
+}
+function dashSwitchGrp(grp){
+  const sel=window._dashSelectedGrp||(window._dashSelectedGrp=new Set());
+  if(sel.has(grp))sel.delete(grp);else sel.add(grp);
+  _updateCosFilterUI();
+  window._suppressTgtToast=true;
+  dashRerender();
+  window._suppressTgtToast=false;
+  if(typeof showTgtToast==='function') showTgtToast(_dashFilterToastMsg());
+}
+
 function dashSwitchInd(ind){
   const sel=window._dashSelectedInd||(window._dashSelectedInd=new Set());
   if(sel.has(ind))sel.delete(ind);else sel.add(ind);
@@ -4688,9 +4727,11 @@ function dashSwitchInd(ind){
 function dashRerender(){
   const sel=window._dashSelectedCos;
   const indSel=window._dashSelectedInd;
+  const grpSel=window._dashSelectedGrp;
   const src=window._allRows||[];
   const cosRows=(!sel||sel.size===0)?src:src.filter(r=>sel.has((r.cos||'').trim()));
-  const rows=(!indSel||indSel.size===0)?cosRows:cosRows.filter(r=>indSel.has((r.ind||'').trim()));
+  const indRows=(!indSel||indSel.size===0)?cosRows:cosRows.filter(r=>indSel.has((r.ind||'').trim()));
+  const rows=(!grpSel||grpSel.size===0)?indRows:indRows.filter(r=>_rowInGrp(r,grpSel));
   const g={tc:0,tcp:0,tq:0,tqp:0,wc:0,wcp:0,wq:0,wqp:0,lc:0,lcp:0,lq:0,lqp:0,mc:0,mcp:0,mq:0,mqp:0,rc:0,rcp:0,rq:0,rqp:0};
   rows.forEach(r=>{
     g.tc+=r.tc||0; g.tcp+=r.tcp||0; g.tq+=r.tq||0; g.tqp+=r.tqp||0;
@@ -4699,6 +4740,17 @@ function dashRerender(){
     g.mc+=r.mc||0; g.mcp+=r.mcp||0; g.mq+=r.mq||0; g.mqp+=r.mqp||0;
     g.rc+=r.rc||0; g.rcp+=r.rcp||0; g.rq+=r.rq||0; g.rqp+=r.rqp||0;
   });
+  // 목표 보드는 제품군 필터를 무시(목표는 제품군별로 존재 → 전체 실적과 비교해야 정확)
+  if(!grpSel||grpSel.size===0){ window._grandNoGrp=g; }
+  else{
+    const g2={tc:0,tcp:0,tq:0,tqp:0,wc:0,wcp:0,wq:0,wqp:0,lc:0,lcp:0,lq:0,lqp:0,mc:0,mcp:0,mq:0,mqp:0,rc:0,rcp:0,rq:0,rqp:0};
+    indRows.forEach(r=>{ g2.tc+=r.tc||0; g2.tcp+=r.tcp||0; g2.tq+=r.tq||0; g2.tqp+=r.tqp||0;
+      g2.wc+=r.wc||0; g2.wcp+=r.wcp||0; g2.wq+=r.wq||0; g2.wqp+=r.wqp||0;
+      g2.lc+=r.lc||0; g2.lcp+=r.lcp||0; g2.lq+=r.lq||0; g2.lqp+=r.lqp||0;
+      g2.mc+=r.mc||0; g2.mcp+=r.mcp||0; g2.mq+=r.mq||0; g2.mqp+=r.mqp||0;
+      g2.rc+=r.rc||0; g2.rcp+=r.rcp||0; g2.rq+=r.rq||0; g2.rqp+=r.rqp||0; });
+    window._grandNoGrp=g2;
+  }
   renderAll(rows,g,window._dashFname||'');
   // 목표 달성 현황 보드도 코스 필터와 동기화
   if(typeof renderTargetKPI==='function'&&document.getElementById('sel-target-month')?.value)renderTargetKPI();
