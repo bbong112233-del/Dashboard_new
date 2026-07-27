@@ -1894,6 +1894,7 @@ function handleFile(file){
               return;
             }
             window._allRows=rows; window._dashFname=file.name;
+            (function(){var _tm=document.getElementById('sel-target-month'); if(_tm&&!_tm.value){ _tm.value=String(new Date().getMonth()+1); }})();
             renderAll(rows,grand,file.name);
             dashInitCosFilter(rows);
             setStep(3);
@@ -1904,7 +1905,7 @@ function handleFile(file){
               document.getElementById('upload-screen').style.display='none';
               document.getElementById('dashboard').style.display='block';
               document.getElementById('target-month-wrap').style.display='flex';
-              (function(){var _tm=document.getElementById('sel-target-month'); if(_tm&&!_tm.value){ _tm.value=String(new Date().getMonth()+1); if(typeof renderTargetKPI==='function') renderTargetKPI(); }})();
+              (function(){var _tm=document.getElementById('sel-target-month'); if(_tm&&!_tm.value){ _tm.value=String(new Date().getMonth()+1); } if(_tm&&_tm.value&&typeof renderTargetKPI==='function') renderTargetKPI(); })();
               document.getElementById('tgt-upload-wrap').style.display='flex';
               setTimeout(function(){var nav=document.getElementById('top-nav');var pw=document.getElementById('panels-wrap');if(nav&&pw)pw.style.paddingTop=nav.getBoundingClientRect().height+'px';},30);
               // 저매출/고매출 패널은 대시보드 표시 후 백그라운드 렌더 (초기 로딩 체감 단축)
@@ -2520,6 +2521,10 @@ function tgtCard(label,actual,target){
   </div>`;
 }
 
+function applyTargetMonth(){
+  if(window._allRows && window._allRows.length && typeof dashRerender==='function'){ dashRerender(); }
+  else if(typeof renderTargetKPI==='function'){ renderTargetKPI(); }
+}
 function renderTargetKPI(){
   const mn=document.getElementById('sel-target-month').value;
   if(!mn||!GDATA.grand)return;
@@ -2647,7 +2652,7 @@ function handleTargetFiles(files){
         const badge=document.getElementById('tgt-file-count');
         if(badge)badge.textContent=parseInt(badge.textContent||'0')+1;
         showTgtToast(`목표 데이터 로드 완료 (${cnt}행)`);
-        if(document.getElementById('sel-target-month').value)renderTargetKPI();
+        if(document.getElementById('sel-target-month').value)applyTargetMonth();
       }catch(err){showTgtToast('목표 파일 오류: '+err.message);}
     };
     reader.readAsArrayBuffer(file);
@@ -2655,7 +2660,7 @@ function handleTargetFiles(files){
 }
 
 // Target month selector event
-document.getElementById('sel-target-month').addEventListener('change',renderTargetKPI);
+document.getElementById('sel-target-month').addEventListener('change',applyTargetMonth);
 // Target file upload event
 document.getElementById('tgt-file-input').addEventListener('change',e=>handleTargetFiles(e.target.files));
 
