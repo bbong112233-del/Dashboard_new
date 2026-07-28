@@ -2,6 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -6102,6 +6105,41 @@ if(window.deleteMemoEntry){
   document.addEventListener('visibilitychange', function(){
     if(!document.hidden && _fbReady && syncTeam() && !_fbMemoRef){ try{ fbAttach(); }catch(e){} }
   });
+})();
+</script>
+
+<script>
+// ══ 🔄 새 버전 자동 감지 배너 (배포되면 팀원 화면에 알림) ══
+(function(){
+  var _verBaseline=null, _verChecking=false;
+  function _verBanner(){
+    if(document.getElementById('ver-update-banner'))return;
+    var b=document.createElement('div');
+    b.id='ver-update-banner';
+    b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:100000;background:#1a73e8;color:#fff;padding:11px 16px;display:flex;align-items:center;justify-content:center;gap:14px;font-family:-apple-system,BlinkMacSystemFont,\'Noto Sans KR\',sans-serif;font-size:14px;font-weight:600;box-shadow:0 2px 10px rgba(0,0,0,.25)';
+    b.innerHTML='🔄 새 버전이 배포됐어요. 최신 내용을 보려면 새로고침하세요.'+
+      '<button id="ver-reload-btn" style="background:#fff;color:#1a73e8;border:none;border-radius:6px;padding:6px 16px;font-weight:700;font-size:13px;cursor:pointer">지금 새로고침</button>'+
+      '<button id="ver-dismiss-btn" style="background:transparent;color:#cfe0ff;border:1px solid rgba(255,255,255,.5);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer">나중에</button>';
+    document.body.appendChild(b);
+    document.getElementById('ver-reload-btn').onclick=function(){ location.reload(true); };
+    document.getElementById('ver-dismiss-btn').onclick=function(){ b.remove(); };
+  }
+  function _verCheck(){
+    if(_verChecking)return; _verChecking=true;
+    fetch(location.pathname+'?_v='+Date.now(), {method:'HEAD', cache:'no-store'})
+      .then(function(r){
+        var tag=r.headers.get('etag')||r.headers.get('last-modified')||'';
+        if(!tag){ return; }
+        if(_verBaseline===null){ _verBaseline=tag; }
+        else if(tag!==_verBaseline){ _verBanner(); }
+      })
+      .catch(function(){})
+      .then(function(){ _verChecking=false; });
+  }
+  // 최초 기준값 기록 후, 탭 복귀 시 + 5분마다 확인
+  setTimeout(_verCheck, 3000);
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) _verCheck(); });
+  setInterval(_verCheck, 5*60*1000);
 })();
 </script>
 
