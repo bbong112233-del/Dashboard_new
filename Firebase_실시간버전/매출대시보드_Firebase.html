@@ -2601,6 +2601,25 @@ function showTgtToast(msg){
   setTimeout(()=>t.classList.remove('show'),2800);
 }
 
+function _dashCosSet(){ var st=new Set(); (window._allRows||[]).forEach(function(r){ var c=(r.cos||'').trim(); if(c)st.add(c); }); return st; }
+function _checkTargetMatch(){
+  var cosSet=_dashCosSet();
+  if(cosSet.size===0) return [];
+  var bad=[];
+  Object.keys(TARGET_DATA).forEach(function(cos){ if(!cosSet.has(String(cos).trim())) bad.push(cos); });
+  return bad;
+}
+function _targetWarnBanner(list){
+  var prev=document.getElementById('tgt-warn-banner'); if(prev)prev.remove();
+  var b=document.createElement('div');
+  b.id='tgt-warn-banner';
+  b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:100000;background:#f9ab00;color:#3c2f00;padding:11px 16px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;font-family:-apple-system,BlinkMacSystemFont,\'Noto Sans KR\',sans-serif;font-size:13px;font-weight:600;box-shadow:0 2px 10px rgba(0,0,0,.25)';
+  var names=list.slice(0,6).map(function(x){return '\u201c'+v3_esc(String(x))+'\u201d';}).join(', ')+(list.length>6?(' \uc678 '+(list.length-6)+'\uac1c'):'');
+  b.innerHTML='\u26a0\ufe0f \ubaa9\ud45c \ud30c\uc77c\uc758 \ucf54\uc2a4\uba85 '+list.length+'\uac1c\uac00 \ub300\uc2dc\ubcf4\ub4dc \ucf54\uc2a4\uba85\uacfc \uc77c\uce58\ud558\uc9c0 \uc54a\uc544 \ubaa9\ud45c\u00b7\ub2ec\uc131\uc728\uc5d0 \ubc18\uc601\ub418\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4: '+names+
+    '<button id="tgt-warn-dismiss" style="background:rgba(0,0,0,.12);color:#3c2f00;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">\ud655\uc778</button>';
+  document.body.appendChild(b);
+  document.getElementById('tgt-warn-dismiss').onclick=function(){ b.remove(); };
+}
 function parseTargetSheet(wb){
   const sheetName=wb.SheetNames.find(s=>s.includes('목표'))||wb.SheetNames[0];
   const raw=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:null});
@@ -2656,6 +2675,8 @@ function handleTargetFiles(files){
         if(badge)badge.textContent=parseInt(badge.textContent||'0')+1;
         showTgtToast(`목표 데이터 로드 완료 (${cnt}행)`);
         if(document.getElementById('sel-target-month').value)applyTargetMonth();
+        var _tgtBad=(typeof _checkTargetMatch==='function')?_checkTargetMatch():[];
+        if(_tgtBad.length) _targetWarnBanner(_tgtBad);
       }catch(err){showTgtToast('목표 파일 오류: '+err.message);}
     };
     reader.readAsArrayBuffer(file);
