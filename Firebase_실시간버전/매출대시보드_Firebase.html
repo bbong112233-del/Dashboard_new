@@ -6136,9 +6136,11 @@ window.openBulkMemo=function(){
   var prev=document.getElementById('bulk-memo-modal'); if(prev)prev.remove();
   var esc=(typeof v3_esc==='function')?v3_esc:function(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');};
   window._bulkSelCos=new Set(); window._bulkSelFirm=new Set();
-  var _fs={}; (window._allRows||[]).forEach(function(r){ var fm=(r.firm||'').trim(); if(fm)_fs[fm]=1; });
+  var _fs={}, _cfm={}; (window._allRows||[]).forEach(function(r){ var fm=(r.firm||'').trim(); if(!fm)return; _fs[fm]=1; var c=(r.cos||'').trim(); if(c){ (_cfm[c]=_cfm[c]||{})[fm]=1; } });
   window._bulkFirmAll=Object.keys(_fs).sort();
+  window._bulkCosFirmMap={}; Object.keys(_cfm).forEach(function(c){ window._bulkCosFirmMap[c]=Object.keys(_cfm[c]).sort(); });
   var cosList=window._dashCosList||[];
+  var cosOpts=cosList.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
   var cosHtml=cosList.map(function(c){ return '<label style="display:inline-flex;align-items:center;gap:4px;background:#f1f3f4;border-radius:6px;padding:4px 9px;margin:3px;font-size:12px;cursor:pointer"><input type="checkbox" class="bulk-cos-chk" value="'+esc(c)+'">'+esc(c)+'</label>'; }).join('') || '<span style="color:#9aa0a6;font-size:12px">코스 데이터 없음</span>';
   var modal=document.createElement('div'); modal.id='bulk-memo-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -6148,9 +6150,13 @@ window.openBulkMemo=function(){
     +'<div style="font-weight:700;font-size:13px;margin-bottom:6px">📍 코스 선택 <button id="bulk-cos-all" style="font-size:11px;margin-left:6px;border:1px solid #dadce0;border-radius:5px;background:#fff;cursor:pointer;padding:2px 8px">전체</button> <button id="bulk-cos-none" style="font-size:11px;border:1px solid #dadce0;border-radius:5px;background:#fff;cursor:pointer;padding:2px 8px">해제</button></div>'
     +'<div style="margin-bottom:14px">'+cosHtml+'</div>'
     +'<div style="font-weight:700;font-size:13px;margin-bottom:6px">🏢 거래처 선택 <span id="bulk-firm-seln" style="font-size:11px;color:#34a853;font-weight:700"></span></div>'
-    +'<input id="bulk-firm-search" placeholder="거래처명 검색 후 클릭해서 담기..." style="width:100%;border:1px solid #dadce0;border-radius:8px;padding:8px 10px;font-size:13px;box-sizing:border-box;margin-bottom:6px">'
+    +'<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;align-items:center">'
+    +'<select id="bulk-firm-cos" style="border:1px solid #dadce0;border-radius:8px;padding:7px 8px;font-size:12px;max-width:170px"><option value="">📂 코스별 거래처 보기…</option>'+cosOpts+'</select>'
+    +'<input id="bulk-firm-search" placeholder="또는 전체 거래처명 검색…" style="flex:1;min-width:150px;border:1px solid #dadce0;border-radius:8px;padding:8px 10px;font-size:13px;box-sizing:border-box">'
+    +'<button id="bulk-firm-selall" style="font-size:11px;border:1px solid #dadce0;border-radius:6px;background:#fff;cursor:pointer;padding:6px 9px;display:none;white-space:nowrap"></button>'
+    +'</div>'
     +'<div id="bulk-firm-chips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px"></div>'
-    +'<div id="bulk-firm-results" style="max-height:150px;overflow:auto;border:1px solid #eee;border-radius:8px;padding:4px;font-size:12px;color:#9aa0a6">거래처명을 입력하세요</div>'
+    +'<div id="bulk-firm-results" style="max-height:180px;overflow:auto;border:1px solid #eee;border-radius:8px;padding:4px;font-size:12px;color:#9aa0a6">코스를 고르거나 거래처명을 검색하세요</div>'
     +'<div style="font-weight:700;font-size:13px;margin:14px 0 6px">📝 메모 내용</div>'
     +'<textarea id="bulk-memo-text" placeholder="여러 대상에 남길 메모 내용을 입력하세요..." style="width:100%;height:90px;border:1px solid #dadce0;border-radius:8px;padding:10px;font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit"></textarea>'
     +'<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;align-items:center">'
@@ -6163,17 +6169,33 @@ window.openBulkMemo=function(){
   function _updateInfo(){ var el=document.getElementById('bulk-target-info'); if(el)el.textContent='코스 '+window._bulkSelCos.size+' · 거래처 '+window._bulkSelFirm.size+' = 총 '+_count()+'개 대상'; var sn=document.getElementById('bulk-firm-seln'); if(sn)sn.textContent=window._bulkSelFirm.size?('선택 '+window._bulkSelFirm.size):''; }
   function _renderChips(){ var el=document.getElementById('bulk-firm-chips'); if(!el)return;
     el.innerHTML=Array.from(window._bulkSelFirm).map(function(fm){ return '<span class="bulk-chip" data-fm="'+esc(fm)+'" style="display:inline-flex;align-items:center;gap:4px;background:#e6f4ea;color:#137333;border-radius:12px;padding:3px 8px;font-size:11px;cursor:pointer">'+esc(fm)+' ✕</span>'; }).join('');
-    el.querySelectorAll('.bulk-chip').forEach(function(ch){ ch.onclick=function(){ window._bulkSelFirm.delete(ch.getAttribute('data-fm')); _renderChips(); _updateInfo(); var si=document.getElementById('bulk-firm-search'); _renderResults(si?si.value:''); }; }); }
-  function _renderResults(q){ var box=document.getElementById('bulk-firm-results'); if(!box)return; q=(q||'').trim().toLowerCase();
-    if(!q){ box.innerHTML='<span style="color:#9aa0a6">거래처명을 입력하세요</span>'; return; }
-    var hits=window._bulkFirmAll.filter(function(fm){ return fm.toLowerCase().indexOf(q)>=0; });
-    var top=hits.slice(0,50);
-    box.innerHTML=(top.map(function(fm){ var on=window._bulkSelFirm.has(fm); return '<div class="bulk-fr" data-fm="'+esc(fm)+'" style="padding:5px 8px;border-radius:6px;cursor:pointer;color:#202124;'+(on?'background:#e6f4ea;font-weight:700':'')+'">'+(on?'✓ ':'')+esc(fm)+'</div>'; }).join('')||'<span style="color:#9aa0a6">검색 결과 없음</span>')+(hits.length>50?('<div style="padding:5px 8px;color:#9aa0a6">…외 '+(hits.length-50)+'개 (더 좁혀서 검색)</div>'):'');
-    box.querySelectorAll('.bulk-fr').forEach(function(row){ row.onclick=function(){ var fm=row.getAttribute('data-fm'); if(window._bulkSelFirm.has(fm))window._bulkSelFirm.delete(fm); else window._bulkSelFirm.add(fm); _renderResults(document.getElementById('bulk-firm-search').value); _renderChips(); _updateInfo(); }; }); }
+    el.querySelectorAll('.bulk-chip').forEach(function(ch){ ch.onclick=function(){ window._bulkSelFirm.delete(ch.getAttribute('data-fm')); _renderChips(); _updateInfo(); _renderFirmList(); }; }); }
+  function _firmRow(fm){ var on=window._bulkSelFirm.has(fm); return '<div class="bulk-fr" data-fm="'+esc(fm)+'" style="padding:5px 8px;border-radius:6px;cursor:pointer;color:#202124;'+(on?'background:#e6f4ea;font-weight:700':'')+'">'+(on?'✓ ':'')+esc(fm)+'</div>'; }
+  function _renderFirmList(){
+    var box=document.getElementById('bulk-firm-results'); if(!box)return;
+    var q=(document.getElementById('bulk-firm-search').value||'').trim().toLowerCase();
+    var selCos=document.getElementById('bulk-firm-cos').value;
+    var selBtn=document.getElementById('bulk-firm-selall');
+    var list=null;
+    if(q){ list=window._bulkFirmAll.filter(function(fm){ return fm.toLowerCase().indexOf(q)>=0; }); }
+    else if(selCos){ list=(window._bulkCosFirmMap[selCos]||[]).slice(); }
+    if(!list){ box.innerHTML='<span style="color:#9aa0a6">코스를 고르거나 거래처명을 검색하세요</span>'; if(selBtn)selBtn.style.display='none'; return; }
+    var shown=q?list.slice(0,50):list;
+    box.innerHTML=(shown.map(_firmRow).join('')||'<span style="color:#9aa0a6">해당 거래처 없음</span>')+((q&&list.length>50)?('<div style="padding:5px 8px;color:#9aa0a6">…외 '+(list.length-50)+'개 (더 좁혀서 검색)</div>'):'');
+    box.querySelectorAll('.bulk-fr').forEach(function(row){ row.onclick=function(){ var fm=row.getAttribute('data-fm'); if(window._bulkSelFirm.has(fm))window._bulkSelFirm.delete(fm); else window._bulkSelFirm.add(fm); _renderFirmList(); _renderChips(); _updateInfo(); }; });
+    if(selBtn){
+      if(!q && selCos && list.length){
+        var allOn=list.every(function(fm){ return window._bulkSelFirm.has(fm); });
+        selBtn.style.display=''; selBtn.textContent=allOn?('목록 전체 빼기 ('+list.length+')'):('목록 전체 담기 ('+list.length+')');
+        selBtn.onclick=function(){ if(allOn){ list.forEach(function(fm){ window._bulkSelFirm.delete(fm); }); } else { list.forEach(function(fm){ window._bulkSelFirm.add(fm); }); } _renderFirmList(); _renderChips(); _updateInfo(); };
+      } else { selBtn.style.display='none'; }
+    }
+  }
   modal.querySelectorAll('.bulk-cos-chk').forEach(function(chk){ chk.onchange=function(){ if(chk.checked)window._bulkSelCos.add(chk.value); else window._bulkSelCos.delete(chk.value); _updateInfo(); }; });
   document.getElementById('bulk-cos-all').onclick=function(){ modal.querySelectorAll('.bulk-cos-chk').forEach(function(c){ c.checked=true; window._bulkSelCos.add(c.value); }); _updateInfo(); };
   document.getElementById('bulk-cos-none').onclick=function(){ modal.querySelectorAll('.bulk-cos-chk').forEach(function(c){ c.checked=false; }); window._bulkSelCos.clear(); _updateInfo(); };
-  document.getElementById('bulk-firm-search').addEventListener('input', function(e){ _renderResults(e.target.value); });
+  document.getElementById('bulk-firm-search').addEventListener('input', function(){ _renderFirmList(); });
+  document.getElementById('bulk-firm-cos').addEventListener('change', function(){ document.getElementById('bulk-firm-search').value=''; _renderFirmList(); });
   document.getElementById('bulk-memo-cancel').onclick=function(){ modal.remove(); };
   modal.addEventListener('click', function(e){ if(e.target===modal) modal.remove(); });
   document.getElementById('bulk-memo-save').onclick=function(){ window._bulkMemoSave(); };
