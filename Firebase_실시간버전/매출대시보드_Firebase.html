@@ -639,6 +639,7 @@ tbody td{padding:8px 10px;color:#202124;vertical-align:middle}
         <div class="sub2" style="margin-bottom:12px">저매출·고매출·지역별 시트에서 저장한 메모 목록 · 날짜별 그룹 · 최신순 정렬</div>
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
           <input id="memo-search" type="text" placeholder="거래처명 또는 메모 내용 검색..." style="flex:1;min-width:180px;padding:7px 12px;border:1px solid #dadce0;border-radius:8px;font-size:13px;outline:none">
+          <button onclick="window.openBulkMemo()" title="여러 코스·거래처에 같은 메모를 한 번에 저장" style="padding:7px 14px;background:#34a853;border:none;border-radius:8px;font-size:12px;font-weight:700;color:#fff;cursor:pointer">🧷 일괄 메모</button>
           <button onclick="window.memoSyncRefresh()" title="팀 저장소의 최신 메모를 받아와 화면을 갱신합니다" style="padding:7px 14px;background:#e8f0fe;border:none;border-radius:8px;font-size:12px;font-weight:700;color:#1a73e8;cursor:pointer">☁️ 동기화</button>
           <button onclick="window.memoMarkAllSeen()" title="모든 메모·댓글의 NEW(읽지 않음) 표시를 읽음 처리합니다" style="padding:7px 14px;background:#fff;border:1px solid #dadce0;border-radius:8px;font-size:12px;font-weight:700;color:#5f6368;cursor:pointer">✅ 전체 읽음</button>
           <button onclick="window.memoToggleAllDates()" style="padding:7px 14px;background:#fff;border:1px solid #dadce0;border-radius:8px;font-size:12px;font-weight:700;color:#5f6368;cursor:pointer">📅 전체 펼치기/접기</button>
@@ -6127,6 +6128,83 @@ if(window.deleteMemoEntry){
     if(!document.hidden && _fbReady && syncTeam() && !_fbMemoRef){ try{ fbAttach(); }catch(e){} }
   });
 })();
+</script>
+
+<script>
+// ══ 🧩 일괄 메모 (여러 코스·거래처에 동일 메모) ══
+window.openBulkMemo=function(){
+  var prev=document.getElementById('bulk-memo-modal'); if(prev)prev.remove();
+  var esc=(typeof v3_esc==='function')?v3_esc:function(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');};
+  window._bulkSelCos=new Set(); window._bulkSelFirm=new Set();
+  var _fs={}; (window._allRows||[]).forEach(function(r){ var fm=(r.firm||'').trim(); if(fm)_fs[fm]=1; });
+  window._bulkFirmAll=Object.keys(_fs).sort();
+  var cosList=window._dashCosList||[];
+  var cosHtml=cosList.map(function(c){ return '<label style="display:inline-flex;align-items:center;gap:4px;background:#f1f3f4;border-radius:6px;padding:4px 9px;margin:3px;font-size:12px;cursor:pointer"><input type="checkbox" class="bulk-cos-chk" value="'+esc(c)+'">'+esc(c)+'</label>'; }).join('') || '<span style="color:#9aa0a6;font-size:12px">코스 데이터 없음</span>';
+  var modal=document.createElement('div'); modal.id='bulk-memo-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px 22px;width:640px;max-width:95vw;max-height:90vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,.25)">'
+    +'<div style="font-size:16px;font-weight:800;color:#202124;margin-bottom:4px">🧩 일괄 메모</div>'
+    +'<div style="font-size:12px;color:#5f6368;margin-bottom:14px">선택한 코스·거래처에 같은 메모를 한 번에 남깁니다. 이미 메모가 있으면 오늘 날짜 댓글로 추가하고, 없으면 새 메모로 저장합니다.</div>'
+    +'<div style="font-weight:700;font-size:13px;margin-bottom:6px">📍 코스 선택 <button id="bulk-cos-all" style="font-size:11px;margin-left:6px;border:1px solid #dadce0;border-radius:5px;background:#fff;cursor:pointer;padding:2px 8px">전체</button> <button id="bulk-cos-none" style="font-size:11px;border:1px solid #dadce0;border-radius:5px;background:#fff;cursor:pointer;padding:2px 8px">해제</button></div>'
+    +'<div style="margin-bottom:14px">'+cosHtml+'</div>'
+    +'<div style="font-weight:700;font-size:13px;margin-bottom:6px">🏢 거래처 선택 <span id="bulk-firm-seln" style="font-size:11px;color:#34a853;font-weight:700"></span></div>'
+    +'<input id="bulk-firm-search" placeholder="거래처명 검색 후 클릭해서 담기..." style="width:100%;border:1px solid #dadce0;border-radius:8px;padding:8px 10px;font-size:13px;box-sizing:border-box;margin-bottom:6px">'
+    +'<div id="bulk-firm-chips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px"></div>'
+    +'<div id="bulk-firm-results" style="max-height:150px;overflow:auto;border:1px solid #eee;border-radius:8px;padding:4px;font-size:12px;color:#9aa0a6">거래처명을 입력하세요</div>'
+    +'<div style="font-weight:700;font-size:13px;margin:14px 0 6px">📝 메모 내용</div>'
+    +'<textarea id="bulk-memo-text" placeholder="여러 대상에 남길 메모 내용을 입력하세요..." style="width:100%;height:90px;border:1px solid #dadce0;border-radius:8px;padding:10px;font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit"></textarea>'
+    +'<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;align-items:center">'
+    +'<span id="bulk-target-info" style="margin-right:auto;font-size:12px;color:#5f6368"></span>'
+    +'<button id="bulk-memo-cancel" style="padding:8px 16px;border:1px solid #dadce0;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">취소</button>'
+    +'<button id="bulk-memo-save" style="padding:8px 20px;border:none;border-radius:6px;background:#1a73e8;color:#fff;cursor:pointer;font-size:13px;font-weight:700">저장</button>'
+    +'</div></div>';
+  document.body.appendChild(modal);
+  function _count(){ return window._bulkSelCos.size + window._bulkSelFirm.size; }
+  function _updateInfo(){ var el=document.getElementById('bulk-target-info'); if(el)el.textContent='코스 '+window._bulkSelCos.size+' · 거래처 '+window._bulkSelFirm.size+' = 총 '+_count()+'개 대상'; var sn=document.getElementById('bulk-firm-seln'); if(sn)sn.textContent=window._bulkSelFirm.size?('선택 '+window._bulkSelFirm.size):''; }
+  function _renderChips(){ var el=document.getElementById('bulk-firm-chips'); if(!el)return;
+    el.innerHTML=Array.from(window._bulkSelFirm).map(function(fm){ return '<span class="bulk-chip" data-fm="'+esc(fm)+'" style="display:inline-flex;align-items:center;gap:4px;background:#e6f4ea;color:#137333;border-radius:12px;padding:3px 8px;font-size:11px;cursor:pointer">'+esc(fm)+' ✕</span>'; }).join('');
+    el.querySelectorAll('.bulk-chip').forEach(function(ch){ ch.onclick=function(){ window._bulkSelFirm.delete(ch.getAttribute('data-fm')); _renderChips(); _updateInfo(); var si=document.getElementById('bulk-firm-search'); _renderResults(si?si.value:''); }; }); }
+  function _renderResults(q){ var box=document.getElementById('bulk-firm-results'); if(!box)return; q=(q||'').trim().toLowerCase();
+    if(!q){ box.innerHTML='<span style="color:#9aa0a6">거래처명을 입력하세요</span>'; return; }
+    var hits=window._bulkFirmAll.filter(function(fm){ return fm.toLowerCase().indexOf(q)>=0; });
+    var top=hits.slice(0,50);
+    box.innerHTML=(top.map(function(fm){ var on=window._bulkSelFirm.has(fm); return '<div class="bulk-fr" data-fm="'+esc(fm)+'" style="padding:5px 8px;border-radius:6px;cursor:pointer;color:#202124;'+(on?'background:#e6f4ea;font-weight:700':'')+'">'+(on?'✓ ':'')+esc(fm)+'</div>'; }).join('')||'<span style="color:#9aa0a6">검색 결과 없음</span>')+(hits.length>50?('<div style="padding:5px 8px;color:#9aa0a6">…외 '+(hits.length-50)+'개 (더 좁혀서 검색)</div>'):'');
+    box.querySelectorAll('.bulk-fr').forEach(function(row){ row.onclick=function(){ var fm=row.getAttribute('data-fm'); if(window._bulkSelFirm.has(fm))window._bulkSelFirm.delete(fm); else window._bulkSelFirm.add(fm); _renderResults(document.getElementById('bulk-firm-search').value); _renderChips(); _updateInfo(); }; }); }
+  modal.querySelectorAll('.bulk-cos-chk').forEach(function(chk){ chk.onchange=function(){ if(chk.checked)window._bulkSelCos.add(chk.value); else window._bulkSelCos.delete(chk.value); _updateInfo(); }; });
+  document.getElementById('bulk-cos-all').onclick=function(){ modal.querySelectorAll('.bulk-cos-chk').forEach(function(c){ c.checked=true; window._bulkSelCos.add(c.value); }); _updateInfo(); };
+  document.getElementById('bulk-cos-none').onclick=function(){ modal.querySelectorAll('.bulk-cos-chk').forEach(function(c){ c.checked=false; }); window._bulkSelCos.clear(); _updateInfo(); };
+  document.getElementById('bulk-firm-search').addEventListener('input', function(e){ _renderResults(e.target.value); });
+  document.getElementById('bulk-memo-cancel').onclick=function(){ modal.remove(); };
+  modal.addEventListener('click', function(e){ if(e.target===modal) modal.remove(); });
+  document.getElementById('bulk-memo-save').onclick=function(){ window._bulkMemoSave(); };
+  _updateInfo();
+};
+window._bulkMemoSave=function(){
+  var ta=document.getElementById('bulk-memo-text'); var text=ta?ta.value.trim():'';
+  if(!text){ alert('메모 내용을 입력하세요.'); return; }
+  var keys=[];
+  (window._bulkSelCos||new Set()).forEach(function(c){ keys.push('region_'+c); });
+  (window._bulkSelFirm||new Set()).forEach(function(fm){ keys.push('region_'+fm); });
+  if(!keys.length){ alert('코스 또는 거래처를 하나 이상 선택하세요.'); return; }
+  var name=''; try{ name=localStorage.getItem('memo_author_name')||''; }catch(e){}
+  var now=new Date().toISOString(); var added=0, commented=0;
+  keys.forEach(function(key){
+    var ex=window.LS_MGMT[key];
+    if(ex && ex.memo && ex.memo.trim()){
+      if(!Array.isArray(ex.comments)) ex.comments=[];
+      ex.comments.push({ id: Date.now()+'_'+Math.random().toString(36).slice(2,7), name:name, text:text, date:now });
+      commented++;
+    } else {
+      if(!window.LS_MGMT[key]) window.LS_MGMT[key]={checked:false,memo:''};
+      window.LS_MGMT[key].memo=text; window.LS_MGMT[key].memoDate=now; window.LS_MGMT[key].memoBy=name;
+      added++;
+    }
+  });
+  if(typeof lsSave==='function') lsSave();
+  if(typeof window.renderMemoSheet==='function') window.renderMemoSheet();
+  var m=document.getElementById('bulk-memo-modal'); if(m)m.remove();
+  if(typeof showTgtToast==='function') showTgtToast('일괄 메모 저장 완료 · 새 메모 '+added+' · 댓글 추가 '+commented);
+};
 </script>
 
 <script>
