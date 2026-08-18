@@ -2170,6 +2170,7 @@ function sortLsTable(sortKey){
   if(!tbody)return;
   const esc=s=>(s||'').replace(/"/g,'&quot;');
   const lsHideDoneActive2=!!window._lsHideDone;
+  window._lsSorted=sorted2;
   tbody.innerHTML=sorted2.map((d,i)=>{
     const lsKey=lsMgmtKey(d.firm,d.cos,d.ind);
     const lsState=LS_MGMT[lsKey]||{};
@@ -3171,6 +3172,7 @@ function sortGsTable(sortKey){
   if(!tbody)return;
   const esc=s=>(s||'').replace(/"/g,'&quot;');
   const lsHideDoneActive2=!!window._gsHideDone;
+  window._gsSorted=sorted2;
   tbody.innerHTML=sorted2.map((d,i)=>{
     const lsKey=lsMgmtKey(d.firm,d.cos,d.ind);
     const lsState=LS_MGMT[lsKey]||{};
@@ -3962,6 +3964,7 @@ function sortHsTable(sortKey){
   if(!tbody)return;
   const esc=s=>(s||'').replace(/"/g,'&quot;');
   const hsHideDoneActive2=!!window._hsHideDone;
+  window._hsSorted=sorted2;
   tbody.innerHTML=sorted2.map((d,i)=>{
     const hsKey=hsMgmtKey(d.firm,d.cos,d.ind);
     const hsState=LS_MGMT[hsKey]||{};
@@ -6264,7 +6267,8 @@ window.openSheetBulkMemo=function(which){
     var box=document.getElementById('sbulk-list'); if(!box)return;
     var vis=_visible(q);
     box.innerHTML=vis.map(function(d){ var k=_key(d); var on=window._sheetBulkSel.has(k); var cos=d.cos?(' <span style="color:#9aa0a6;font-size:11px">'+esc(d.cos)+'</span>'):'';
-      return '<label class="sbulk-row" style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px'+(on?';background:#e6f4ea':'')+'"><input type="checkbox" class="sbulk-chk" data-k="'+esc(k)+'"'+(on?' checked':'')+'><span>'+esc(d.firm)+cos+'</span></label>'; }).join('') || '<span style="color:#9aa0a6;font-size:12px;padding:6px;display:block">검색 결과 없음</span>';
+      var _cur=d.tc||0,_prv=d.tcp||0; var _grTxt=_prv>0?((_cur>=_prv?'+':'')+(((_cur-_prv)/_prv*100).toFixed(1))+'%'):(_cur>0?'신규':'-'); var _grCol=_prv>0?(_cur>=_prv?'#0f9d58':'#d93025'):(_cur>0?'#1a73e8':'#9aa0a6'); var grHtml=' <span style="color:'+_grCol+';font-size:11px;font-weight:700">'+_grTxt+'</span>';
+      return '<label class="sbulk-row" style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px'+(on?';background:#e6f4ea':'')+'"><input type="checkbox" class="sbulk-chk" data-k="'+esc(k)+'"'+(on?' checked':'')+'><span>'+esc(d.firm)+cos+grHtml+'</span></label>'; }).join('') || '<span style="color:#9aa0a6;font-size:12px;padding:6px;display:block">검색 결과 없음</span>';
     box.querySelectorAll('.sbulk-chk').forEach(function(chk){ chk.onchange=function(){ var k=chk.getAttribute('data-k'); if(chk.checked)window._sheetBulkSel.add(k); else window._sheetBulkSel.delete(k); var lb=chk.closest('.sbulk-row'); if(lb)lb.style.background=chk.checked?'#e6f4ea':''; _info(); }; });
   }
   document.getElementById('sbulk-search').addEventListener('input',function(e){ _render(e.target.value); });
