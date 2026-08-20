@@ -643,7 +643,7 @@ tbody td{padding:8px 10px;color:#202124;vertical-align:middle}
           <button onclick="window.memoSyncRefresh()" title="팀 저장소의 최신 메모를 받아와 화면을 갱신합니다" style="padding:7px 14px;background:#e8f0fe;border:none;border-radius:8px;font-size:12px;font-weight:700;color:#1a73e8;cursor:pointer">☁️ 동기화</button>
           <button onclick="window.memoMarkAllSeen()" title="모든 메모·댓글의 NEW(읽지 않음) 표시를 읽음 처리합니다" style="padding:7px 14px;background:#fff;border:1px solid #dadce0;border-radius:8px;font-size:12px;font-weight:700;color:#5f6368;cursor:pointer">✅ 전체 읽음</button>
           <button onclick="window.memoToggleAllDates()" style="padding:7px 14px;background:#fff;border:1px solid #dadce0;border-radius:8px;font-size:12px;font-weight:700;color:#5f6368;cursor:pointer">📅 전체 펼치기/접기</button>
-          <button onclick="window.memoTogglePast()" id="memo-past-btn" title="1달 지난 메모를 주간 단위로 모아 봅니다 (2달 지나면 자동 삭제)" style="padding:7px 14px;background:#fff;border:1px solid #dadce0;border-radius:8px;font-size:12px;font-weight:700;color:#5f6368;cursor:pointer">🗂️ 지난 메모</button>
+          <button onclick="window.memoTogglePast()" id="memo-past-btn" title="1달 지난 메모를 주간 단위로 모아 봅니다 (3달 지나면 메모·공지 자동 삭제)" style="padding:7px 14px;background:#fff;border:1px solid #dadce0;border-radius:8px;font-size:12px;font-weight:700;color:#5f6368;cursor:pointer">🗂️ 지난 메모</button>
           <button onclick="window.memoChangeAuthorName()" title="공지·댓글에 표시되는 내 이름을 변경합니다" style="padding:7px 14px;background:#fff;border:1px solid #dadce0;border-radius:8px;font-size:12px;font-weight:700;color:#5f6368;cursor:pointer">🙍 내 이름 변경</button>
         </div>
         <div class="ls-hs-scroll-wrap">
@@ -1732,11 +1732,11 @@ function renderAll(rows,grand,fname){
     const indRowsNW=rows.filter(r=>(r.ind||'기타')===d.name&&(r.lc>0||r.lcp>0||r.mc>0||r.mcp>0||r.rc>0||r.rcp>0));
     const prodMap={};
     indRowsNW.forEach(r=>{const k=r.prod;if(!k)return;if(!prodMap[k])prodMap[k]={name:k,cur:0,cmp:0,cat:r.cat||'-'};prodMap[k].cur+=r.lc+r.mc+r.rc;prodMap[k].cmp+=r.lcp+r.mcp+r.rcp;});
-    const botProds=Object.values(prodMap).map(p=>({...p,gr:growth(p.cur,p.cmp)})).filter(p=>p.cmp>0&&(p.gr||0)<0).sort((a,b)=>(b.cmp-b.cur)-(a.cmp-a.cur)).slice(0,10);
-    window._indBoardData['bot_'+idx]={data:botProds,sort:{key:'cur',dir:-1}};
+    const botProds=Object.values(prodMap).map(p=>({...p,gr:growth(p.cur,p.cmp)})).filter(p=>p.cmp>0&&(p.gr||0)<0).sort((a,b)=>(b.cmp||0)-(a.cmp||0)).slice(0,10);
+    window._indBoardData['bot_'+idx]={data:botProds,sort:{key:'cmp',dir:-1}};
     const thSort=(key,lbl,def)=>`<th class="sort-th" data-iboard="bot_${idx}" data-sort="${key}" style="cursor:pointer;user-select:none">${lbl}<span class="sort-arrow">${def?' ▼':' ↕'}</span></th>`;
-    return`<div class="tcard" style="margin-bottom:0"><h3>📉 ${d.name} — 하락 TOP 10</h3><div class="sub2" id="ind-bot-sub-${idx}">감소액 기준 · 전년 실적 있는 하락 상품</div>
-      <table><thead><tr><th>순위</th><th>상품명</th><th>카테고리</th>${thSort('cur','현재 매출액',false)}${thSort('cmp','전년 매출액',false)}${thSort('gr','성장률',false)}</tr></thead>
+    return`<div class="tcard" style="margin-bottom:0"><h3>📉 ${d.name} — 하락 TOP 10</h3><div class="sub2" id="ind-bot-sub-${idx}">전년 매출액 기준 · 전년 실적 있는 하락 상품</div>
+      <table><thead><tr><th>순위</th><th>상품명</th><th>카테고리</th>${thSort('cur','현재 매출액',false)}${thSort('cmp','전년 매출액',true)}${thSort('gr','성장률',false)}</tr></thead>
       <tbody id="ind-bot-body-${idx}"></tbody></table></div>`;
   }).join('');
   // 초기 렌더
@@ -5225,9 +5225,9 @@ window.renderMemoSheet = function(){
   var data = {};
   try{ data = JSON.parse(localStorage.getItem('ls_mgmt_state'))||{}; }catch(e){}
 
-  // 보관기간: 2달 지난 메모는 자동 삭제(본문·날짜·댓글 비움, checked 유지 / 기존 수동삭제와 동일·로컬)
+  // 보관기간: 3달 지난 메모는 자동 삭제(본문·날짜·댓글 비움, checked 유지 / 기존 수동삭제와 동일·로컬)
   (function(){
-    var _delTh=new Date(); _delTh.setMonth(_delTh.getMonth()-2); var _delMs=_delTh.getTime(), _dirty=false;
+    var _delTh=new Date(); _delTh.setMonth(_delTh.getMonth()-3); var _delMs=_delTh.getTime(), _dirty=false;
     Object.keys(data).forEach(function(_k){
       var _v=data[_k];
       if(_v && _v.memo && _v.memoDate && new Date(_v.memoDate).getTime() < _delMs){
@@ -5769,10 +5769,23 @@ function noticesRead(){ try{ return JSON.parse(localStorage.getItem(NOTICE_LSKEY
 function noticesWrite(d){ try{ localStorage.setItem(NOTICE_LSKEY, JSON.stringify(d)); }catch(e){} }
 function noticesUrl(){ return FIREBASE_DB_URL.replace(/\/+$/,'')+'/notices/'+encodeURIComponent(syncTeam())+'.json'; }
 
+// 보관기간: 3달 지난 공지는 자동 삭제(삭제 표시 · 팀 저장소에도 반영해 되살아나지 않게)
+function noticesAutoPurge(){
+  var _th=new Date(); _th.setMonth(_th.getMonth()-3); var _ms=_th.getTime();
+  var d=noticesRead(), dirty=false;
+  Object.keys(d).forEach(function(id){
+    var n=d[id];
+    if(!n || n.deleted || !n.date) return;
+    if(new Date(n.date).getTime() < _ms){ n.deleted=true; dirty=true; noticesPushOne(id, n); }
+  });
+  if(dirty) noticesWrite(d);
+}
+
 window.renderNotices = function(){
   var listEl = document.getElementById('notice-list');
   var cntEl  = document.getElementById('notice-count');
   if(!listEl) return;
+  noticesAutoPurge();
   var d = noticesRead();
   var arr = Object.keys(d).map(function(k){ return d[k]; }).filter(function(n){ return n && !n.deleted && n.text; });
   arr.sort(function(a,b){ return (a.date||'')<(b.date||'')?1:-1; });
