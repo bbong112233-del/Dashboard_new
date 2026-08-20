@@ -3080,7 +3080,7 @@ function lsSwitchTab(cos){
           '<input type="checkbox" class="ls-chk" data-lskey="'+esc(lsKey)+'" '+(isDone?'checked':'')+' style="width:15px;height:15px;cursor:pointer;accent-color:#0f9d58">'+
         '</td>'+
         '<td>'+rkSp(i)+'</td>'+
-        '<td><b>'+d.firm+'</b></td>'+
+        '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"'+(d.firm&&d.firm.length>12?' title="'+esc(d.firm)+'"':'')+'><b>'+d.firm+'</b></td>'+
         '<td><span class="ind-tag ind-'+v3_esc(d.ind||'')+'">'+d.ind+'</span></td>'+
         (showCos?'<td><span class="cos-tag">'+d.cos+'</span></td>':'')+
         '<td style="text-align:right;color:#0f3460">'+(d.wc>0?fmtW(d.wc):'<span style="color:#ccc">-</span>')+'</td>'+
@@ -3534,7 +3534,7 @@ function gsSwitchTab(cos){
           '<input type="checkbox" class="gs-chk" data-gskey="'+esc(lsKey)+'" '+(isDone?'checked':'')+' style="width:15px;height:15px;cursor:pointer;accent-color:#0f9d58">'+
         '</td>'+
         '<td>'+rkSp(i)+'</td>'+
-        '<td><b>'+d.firm+'</b></td>'+
+        '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"'+(d.firm&&d.firm.length>12?' title="'+esc(d.firm)+'"':'')+'><b>'+d.firm+'</b></td>'+
         '<td><span class="ind-tag ind-'+v3_esc(d.ind||'')+'">'+d.ind+'</span></td>'+
         (showCos?'<td><span class="cos-tag">'+d.cos+'</span></td>':'')+
         '<td style="text-align:right;color:#0f3460">'+(d.wc>0?fmtW(d.wc):'<span style="color:#ccc">-</span>')+'</td>'+
@@ -3732,7 +3732,7 @@ function renderDormantPanel(){
       return '<tr class="cat-row dm-row" data-firm="'+esc(d.firm)+'" data-cos="'+esc(d.cos)+'" data-ind="'+esc(d.ind)+'" data-lskey="'+esc(lsKey)+'" style="cursor:pointer;'+rowOpacity+rowHide+'">'+
         '<td style="text-align:center"><input type="checkbox" class="dm-chk" data-lskey="'+esc(lsKey)+'" '+(isDone?'checked':'')+' style="width:15px;height:15px;cursor:pointer;accent-color:#0f9d58"></td>'+
         '<td>'+rkSp(i)+'</td>'+
-        '<td><b>'+d.firm+'</b></td>'+
+        '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"'+(d.firm&&d.firm.length>12?' title="'+esc(d.firm)+'"':'')+'><b>'+d.firm+'</b></td>'+
         '<td><span class="ind-tag ind-'+v3_esc(d.ind||'')+'">'+d.ind+'</span></td>'+
         '<td><span class="cos-tag">'+d.cos+'</span></td>'+
         '<td style="text-align:right;font-weight:700;color:#80868b">'+(d.tcp>0?fmtW(d.tcp):'<span style="color:#ccc">-</span>')+'</td>'+
@@ -4023,7 +4023,7 @@ function hsSwitchTab(cos){
           '<input type="checkbox" class="hs-chk" data-hskey="'+esc(hsKey)+'" '+(hsDone?'checked':'')+' style="width:15px;height:15px;cursor:pointer;accent-color:#e67e22">'+
         '</td>'+
         '<td>'+rkSp(i)+'</td>'+
-        '<td><b>'+d.firm+'</b></td>'+
+        '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"'+(d.firm&&d.firm.length>12?' title="'+esc(d.firm)+'"':'')+'><b>'+d.firm+'</b></td>'+
         '<td><span class="ind-tag ind-'+v3_esc(d.ind||'')+'">'+d.ind+'</span></td>'+
         (showCos?'<td><span class="cos-tag">'+d.cos+'</span></td>':'')+
         '<td style="text-align:right;color:#0f3460">'+(d.wc>0?fmtW(d.wc):'<span style="color:#ccc">-</span>')+'</td>'+
@@ -6646,7 +6646,7 @@ window.renderWsPanel=function(){
     var topGap=d._gapDetail.slice().sort(function(x,y){return y.exp-x.exp;})[0];
     return '<tr class="cat-row ws-row" data-firm="'+esc(d.firm)+'" data-cos="'+esc(d.cos)+'" data-ind="'+esc(d.ind)+'" style="cursor:pointer">'+
       '<td>'+rkSp(i)+'</td>'+
-      '<td><b>'+v3_esc(d.firm)+'</b></td>'+
+      '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"'+(d.firm&&d.firm.length>12?' title="'+v3_esc(d.firm)+'"':'')+'><b>'+v3_esc(d.firm)+'</b></td>'+
       '<td><span class="ind-tag ind-'+v3_esc(d.ind||'')+'">'+v3_esc(d.ind)+'</span></td>'+
       '<td><span class="cos-tag">'+v3_esc(d.cos)+'</span></td>'+
       _wsGrpBadgeTd(d)+
@@ -6799,7 +6799,7 @@ function _mpopRenderCand(){
     var mk=lsMgmtKey(d.firm,d.cos,d.ind);
     return '<tr>'+
       '<td>'+rkSp(i)+'</td>'+
-      '<td><b>'+v3_esc(d.firm)+'</b></td>'+
+      '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"'+(d.firm&&d.firm.length>12?' title="'+v3_esc(d.firm)+'"':'')+'><b>'+v3_esc(d.firm)+'</b></td>'+
       '<td><span class="ind-tag ind-'+v3_esc(d.ind||'')+'">'+v3_esc(d.ind)+'</span></td>'+
       '<td><span class="cos-tag">'+v3_esc(d.cos)+'</span></td>'+
       _wsGrpBadgeTd(d)+
