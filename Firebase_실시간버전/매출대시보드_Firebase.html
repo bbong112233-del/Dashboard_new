@@ -2305,9 +2305,9 @@ function _renderIndBoard(type,idx){
   const st=cfg.sort;
   const isBot=type==='bot';
   const sorted=[...cfg.data].sort(function(a,b){
-    if(st.key==='gr'){if(a.gr==null&&b.gr==null)return 0;if(a.gr==null)return 1;if(b.gr==null)return -1;return st.dir*((b.gr||0)-(a.gr||0));}
-    if(st.key==='cmp')return st.dir*((b.cmp||0)-(a.cmp||0));
-    return st.dir*((b.cur||0)-(a.cur||0));
+    if(st.key==='gr'){if(a.gr==null&&b.gr==null)return 0;if(a.gr==null)return 1;if(b.gr==null)return -1;return st.dir*((a.gr||0)-(b.gr||0));}
+    if(st.key==='cmp')return st.dir*((a.cmp||0)-(b.cmp||0));
+    return st.dir*((a.cur||0)-(b.cur||0));
   });
   const tbody=document.getElementById('ind-'+type+'-body-'+idx);
   if(!tbody)return;
