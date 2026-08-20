@@ -227,6 +227,16 @@ tbody td{padding:8px 10px;color:#202124;vertical-align:middle}
 .hs-tab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:#f1f3f4;color:#5f6368;border:1.5px solid transparent;transition:all .2s;white-space:nowrap}
 .hs-tab.active{background:#fff3e0;color:#e67e22;border-color:#e67e22}
 .hs-tab:hover:not(.active){background:#e8eaed}
+/* ── 🎯 품목 확대 기회 필터 ── */
+.ws-filter{background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.07);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.ws-flabel{font-size:11px;font-weight:700;color:#5f6368;margin-right:8px}
+.ws-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid #dadce0;background:#fff;border-radius:18px;padding:5px 13px;font-size:12px;font-weight:600;color:#5f6368;cursor:pointer;user-select:none}
+.ws-chip:hover{background:#f8f9fa}
+.ws-chip.sel{background:#1a73e8;border-color:#1a73e8;color:#fff}
+.ws-chip b{background:rgba(0,0,0,.08);border-radius:9px;padding:0 6px;font-size:10px}
+.ws-chip.sel b{background:rgba(255,255,255,.25)}
+.ws-csv{margin-left:auto;border:1px solid #dadce0;background:#fff;color:#1a73e8;border-radius:8px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer}
+
 /* ── 메인 대시보드 코스 필터 탭 ── */
 #dash-cos-filter-bar{display:none;flex-wrap:wrap;align-items:center;gap:5px;padding:6px 14px;background:#f8f9fa;border-bottom:1px solid #e8eaed}
 .dcf-label{font-size:11px;color:#5f6368;font-weight:700;white-space:nowrap;margin-right:4px}
@@ -395,6 +405,7 @@ tbody td{padding:8px 10px;color:#202124;vertical-align:middle}
     <div class="tab" data-tab="lowsales">🔍 저매출 관리</div>
     <div class="tab" data-tab="highsales">💰 고매출 관리</div>
     <div class="tab" data-tab="dormant" onclick="setTimeout(function(){if(window.renderDormantPanel)renderDormantPanel();},80)">💤 휴면회원사</div>
+        <div class="tab" data-tab="whitespace" onclick="setTimeout(function(){if(window.renderWsPanel)renderWsPanel();},80)">🎯 품목 확대 기회</div>
         <div class="tab" data-tab="brand" onclick="setTimeout(function(){if(window.renderBrandSheet)renderBrandSheet();},80)">🏷 공구 6대 브랜드</div>
         <div class="tab" data-tab="category" onclick="setTimeout(function(){if(window.renderCategorySheet)renderCategorySheet();},80)">🔆 조명 15대 카테고리</div>
         <div class="tab" data-tab="memo" onclick="setTimeout(function(){renderMemoSheet();if(window.renderNotices)renderNotices();},80)">📝 메모 관리</div>
@@ -724,6 +735,13 @@ tbody td{padding:8px 10px;color:#202124;vertical-align:middle}
         <div id="kpi-dormant" style="display:contents"></div>
       </div>
       <div id="dormant-content"></div>
+    </div>
+
+    <!-- 품목 확대 기회 (화이트스페이스 + 갭 스코어) -->
+    <div id="panel-whitespace" class="panel">
+      <div id="ws-filter" class="ws-filter"></div>
+      <div id="ws-kpi" class="kpi-grid"></div>
+      <div id="ws-content"></div>
     </div>
 
   </div><!-- /panels -->
@@ -3006,6 +3024,7 @@ function lsSwitchTab(cos){
     '<th>순위</th><th>거래처명</th><th>업종군</th>'+(showCos?'<th>코스</th>':'')+
     '<th style="text-align:right">⚡전선</th><th style="text-align:right">💡조명</th>'+
     '<th style="text-align:right">🔩부자재</th><th style="text-align:right">🛒MRO</th>'+
+    '<th style="text-align:center" title="올해·전년 중 한 번이라도 거래가 있으면 취급">취급</th>'+
     '<th class="sort-th" data-tb="ls" data-sort="tc" style="text-align:right;cursor:pointer;user-select:none">합계(현재)<span class="sort-arrow"> ▼</span></th><th class="sort-th" data-tb="ls" data-sort="tcp" style="text-align:right;cursor:pointer;user-select:none">전년매출<span class="sort-arrow"> ↕</span></th>'+
     '<th class="sort-th" data-tb="ls" data-sort="gr" style="cursor:pointer;user-select:none">성장율<span class="sort-arrow"> ↕</span></th>'+
     '<th class="sort-th" data-tb="ls" data-sort="iCnt" style="text-align:right;cursor:pointer;user-select:none">상품수(현재)<span class="sort-arrow"> ↕</span></th>'+
@@ -3033,6 +3052,7 @@ function lsSwitchTab(cos){
         '<td style="text-align:right;color:#27ae60">'+(d.lc>0?fmtW(d.lc):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td style="text-align:right;color:#e67e22">'+(d.mc>0?fmtW(d.mc):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td style="text-align:right;color:#8e44ad">'+(d.rc>0?fmtW(d.rc):'<span style="color:#ccc">-</span>')+'</td>'+
+        _wsGrpBadgeTd(d)+
         '<td style="text-align:right;font-weight:700">'+fmtW(d.tc)+'</td>'+
         '<td style="text-align:right;color:#80868b">'+(d.tcp>0?fmtW(d.tcp):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td>'+gRow(growth(d.tc,d.tcp))+'</td>'+
@@ -3047,16 +3067,105 @@ function lsSwitchTab(cos){
     '</tbody></table></div></div>';
 }
 
+
+// ══ 🎯 품목 확대(화이트스페이스) 공용 로직 ══════════════════════════
+// '취급' 판정 = 올해·전년 중 한 번이라도 매출이 있으면 취급
+function _wsAllRows(){
+  var a=window._allRows;
+  if(a&&a.length)return a;
+  return (typeof GDATA!=='undefined'&&GDATA.allRows)?GDATA.allRows:[];
+}
+var WS_GRPS=[
+  {key:'wire', cur:'wc',prv:'wcp',icon:'⚡',name:'전선',  color:'#0f3460',bg:'#e7ecf5'},
+  {key:'light',cur:'lc',prv:'lcp',icon:'💡',name:'조명',  color:'#1e7e45',bg:'#e6f4ea'},
+  {key:'mat',  cur:'mc',prv:'mcp',icon:'🔩',name:'부자재',color:'#a55a12',bg:'#fdf0e3'},
+  {key:'mro',  cur:'rc',prv:'rcp',icon:'🛒',name:'MRO',   color:'#6c3483',bg:'#f3e8f8'}
+];
+// 업종군별 제품군 채택률(회원사 수 기준) — 제안 근거로 사용
+function _wsAdoptStats(){
+  var rows=_wsAllRows();
+  if(window._wsAdoptSrc===rows&&window._wsAdoptCache)return window._wsAdoptCache;
+  var firmMap={};
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i]; if(!r||!r.firm)continue;
+    var ind=r.ind||'기타', k=ind+'|||'+r.firm;
+    var e=firmMap[k];
+    if(!e)e=firmMap[k]={ind:ind,wire:0,light:0,mat:0,mro:0};
+    e.wire+=(r.wc||0)+(r.wcp||0); e.light+=(r.lc||0)+(r.lcp||0);
+    e.mat +=(r.mc||0)+(r.mcp||0); e.mro  +=(r.rc||0)+(r.rcp||0);
+  }
+  var byInd={};
+  Object.keys(firmMap).forEach(function(k){
+    var e=firmMap[k], b=byInd[e.ind];
+    if(!b)b=byInd[e.ind]={total:0,wire:0,light:0,mat:0,mro:0};
+    b.total++;
+    ['wire','light','mat','mro'].forEach(function(g){ if(e[g]>0)b[g]++; });
+  });
+  window._wsAdoptCache=byInd; window._wsAdoptSrc=rows;
+  return byInd;
+}
+function _wsAdoptPct(grpKey,ind){
+  var st=_wsAdoptStats()[ind||''];
+  if(!st||!st.total)return null;
+  return {n:st[grpKey]||0,total:st.total,pct:Math.round((st[grpKey]||0)/st.total*100)};
+}
+function _wsAdoptTxt(grpKey,ind){
+  var a=_wsAdoptPct(grpKey,ind);
+  if(!a)return '';
+  return ' · 같은 '+(ind||'업종군')+' 회원사 '+a.n+'/'+a.total+'곳('+a.pct+'%)이 거래 중';
+}
+// 회원사 행에 넣는 취급/미취급 배지 <td> (상품군 4개 + n/4)
+function _wsGrpBadgeTd(d){
+  var on=0, html='';
+  WS_GRPS.forEach(function(g){
+    var v=(d[g.cur]||0)+(d[g.prv]||0);
+    if(v>0){ on++;
+      html+='<span title="'+g.name+' 취급" style="display:inline-block;font-size:10px;padding:1px 4px;border-radius:3px;margin-right:2px;background:'+g.bg+';color:'+g.color+';font-weight:700">'+g.icon+'</span>';
+    }else{
+      html+='<span title="'+g.name+' 미취급 — 제안 대상" style="display:inline-block;font-size:10px;padding:1px 4px;border-radius:3px;margin-right:2px;background:#fafafa;color:#c9ccd0;border:1px dashed #dadce0;font-weight:700">'+g.icon+'</span>';
+    }
+  });
+  var c=on===4?'#0f9d58':(on<=2?'#d93025':'#5f6368');
+  return '<td style="white-space:nowrap;text-align:center">'+html+' <b style="font-size:11px;color:'+c+'">'+on+'/4</b></td>';
+}
+// 상세 팝업(상품군 6컬럼)에 붙이는 미취급 행
+function _wsMissRows(all,firm,ind,mkey){
+  var miss=all.filter(function(g){ return !(g.cur>0||g.cmp>0); });
+  if(!miss.length)return '';
+  var ef=String(firm||'').replace(/"/g,'&quot;');
+  var ek=String(mkey||'').replace(/"/g,'&quot;');
+  return miss.map(function(g){
+    return '<tr style="background:#fff8e1">'+
+      '<td><b style="color:#b0b4b8">'+g.icon+' '+g.name+'</b> <span style="font-size:9px;background:#fef7e0;color:#b06000;border-radius:3px;padding:1px 5px;font-weight:700">미취급</span></td>'+
+      '<td colspan="4" style="color:#7a5b00;font-weight:600;font-size:11px">제안 대상 — 올해·전년 모두 거래 없음'+_wsAdoptTxt(g.key,ind)+'</td>'+
+      '<td style="text-align:right"><button class="ws-propose-btn" data-mkey="'+ek+'" data-firm="'+ef+'" data-grp="'+g.name+'" style="border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;background:#34a853;color:#fff;cursor:pointer">＋ 제안 메모</button></td>'+
+      '</tr>';
+  }).join('');
+}
+// 제안 메모 버튼 → 기존 메모 모달 재사용
+document.addEventListener('click',function(e){
+  if(!e.target.closest)return;
+  var b=e.target.closest('.ws-propose-btn');
+  if(!b)return;
+  e.stopPropagation();
+  var mkey=b.getAttribute('data-mkey');
+  if(!mkey||typeof lsOpenMemo!=='function')return;
+  lsOpenMemo(mkey, b.getAttribute('data-firm')||'');
+  var inp=document.getElementById('ls-memo-input');
+  if(inp&&!inp.value.trim()){ inp.value='[품목 제안] '+(b.getAttribute('data-grp')||'')+' — '; inp.focus(); }
+});
+
 function showLowSalesDetail(firm, cos, ind){
   const d=(window._lsFirms||[]).find(x=>x.firm===firm&&x.cos===cos&&x.ind===ind);
   if(!d)return;
 
-  const grps=[
+  const _grpsAll=[
     {key:'wire', icon:'⚡',name:'전선',color:'#0f3460',cur:d.wc,cmp:d.wcp},
     {key:'light',icon:'💡',name:'조명',color:'#27ae60',cur:d.lc,cmp:d.lcp},
     {key:'mat',  icon:'🔩',name:'부자재',color:'#e67e22',cur:d.mc,cmp:d.mcp},
     {key:'mro',  icon:'🛒',name:'MRO',color:'#8e44ad',cur:d.rc,cmp:d.rcp},
-  ].filter(g=>g.cur>0||g.cmp>0);
+  ];
+  const grps=_grpsAll.filter(g=>g.cur>0||g.cmp>0);
   const escFirm=firm.replace(/"/g,'&quot;');
   const escCos=cos.replace(/"/g,'&quot;');
   const escInd=ind.replace(/"/g,'&quot;');
@@ -3104,6 +3213,7 @@ function showLowSalesDetail(firm, cos, ind){
       '</tr>';
   });
   const totDiff=d.tc-d.tcp;
+  rows.push(_wsMissRows(_grpsAll, firm, ind, lsMgmtKey(firm,cos,ind)));
   rows.push(
     '<tr style="font-weight:700;border-top:2px solid #e8eaed;background:#f8f9fa">'+
     '<td>📊 합계</td>'+
@@ -3392,6 +3502,7 @@ function gsSwitchTab(cos){
     '<th>순위</th><th>거래처명</th><th>업종군</th>'+(showCos?'<th>코스</th>':'')+
     '<th style="text-align:right">⚡전선</th><th style="text-align:right">💡조명</th>'+
     '<th style="text-align:right">🔩부자재</th><th style="text-align:right">🛒MRO</th>'+
+    '<th style="text-align:center" title="올해·전년 중 한 번이라도 거래가 있으면 취급">취급</th>'+
     '<th class="sort-th" data-tb="gs" data-sort="tc" style="text-align:right;cursor:pointer;user-select:none">합계(현재)<span class="sort-arrow"> ▼</span></th><th class="sort-th" data-tb="gs" data-sort="tcp" style="text-align:right;cursor:pointer;user-select:none">전년매출<span class="sort-arrow"> ↕</span></th>'+
     '<th class="sort-th" data-tb="gs" data-sort="gr" style="cursor:pointer;user-select:none">성장율<span class="sort-arrow"> ↕</span></th>'+
     '<th class="sort-th" data-tb="gs" data-sort="iCnt" style="text-align:right;cursor:pointer;user-select:none">상품수(현재)<span class="sort-arrow"> ↕</span></th>'+
@@ -3419,6 +3530,7 @@ function gsSwitchTab(cos){
         '<td style="text-align:right;color:#27ae60">'+(d.lc>0?fmtW(d.lc):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td style="text-align:right;color:#e67e22">'+(d.mc>0?fmtW(d.mc):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td style="text-align:right;color:#8e44ad">'+(d.rc>0?fmtW(d.rc):'<span style="color:#ccc">-</span>')+'</td>'+
+        _wsGrpBadgeTd(d)+
         '<td style="text-align:right;font-weight:700">'+fmtW(d.tc)+'</td>'+
         '<td style="text-align:right;color:#80868b">'+(d.tcp>0?fmtW(d.tcp):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td>'+gRow(growth(d.tc,d.tcp))+'</td>'+
@@ -3436,12 +3548,13 @@ function showGrowthDetail(firm, cos, ind){
   const d=(window._gsFirms||[]).find(x=>x.firm===firm&&x.cos===cos&&x.ind===ind);
   if(!d)return;
 
-  const grps=[
+  const _grpsAll=[
     {key:'wire', icon:'⚡',name:'전선',color:'#0f3460',cur:d.wc,cmp:d.wcp},
     {key:'light',icon:'💡',name:'조명',color:'#27ae60',cur:d.lc,cmp:d.lcp},
     {key:'mat',  icon:'🔩',name:'부자재',color:'#e67e22',cur:d.mc,cmp:d.mcp},
     {key:'mro',  icon:'🛒',name:'MRO',color:'#8e44ad',cur:d.rc,cmp:d.rcp},
-  ].filter(g=>g.cur>0||g.cmp>0);
+  ];
+  const grps=_grpsAll.filter(g=>g.cur>0||g.cmp>0);
   const escFirm=firm.replace(/"/g,'&quot;');
   const escCos=cos.replace(/"/g,'&quot;');
   const escInd=ind.replace(/"/g,'&quot;');
@@ -3489,6 +3602,7 @@ function showGrowthDetail(firm, cos, ind){
       '</tr>';
   });
   const totDiff=d.tc-d.tcp;
+  rows.push(_wsMissRows(_grpsAll, firm, ind, lsMgmtKey(firm,cos,ind)));
   rows.push(
     '<tr style="font-weight:700;border-top:2px solid #e8eaed;background:#f8f9fa">'+
     '<td>📊 합계</td>'+
@@ -3894,6 +4008,7 @@ function hsSwitchTab(cos){
     '<th>순위</th><th>거래처명</th><th>업종군</th>'+(showCos?'<th>코스</th>':'')+
     '<th style="text-align:right">⚡전선</th><th style="text-align:right">💡조명</th>'+
     '<th style="text-align:right">🔩부자재</th><th style="text-align:right">🛒MRO</th>'+
+    '<th style="text-align:center" title="올해·전년 중 한 번이라도 거래가 있으면 취급">취급</th>'+
     '<th class="sort-th" data-tb="hs" data-sort="tc" style="text-align:right;cursor:pointer;user-select:none">합계(현재)<span class="sort-arrow"> ▼</span></th>'+
     '<th class="sort-th" data-tb="hs" data-sort="tcp" style="text-align:right;cursor:pointer;user-select:none">전년매출<span class="sort-arrow"> ↕</span></th>'+
     '<th class="sort-th" data-tb="hs" data-sort="gr" style="cursor:pointer;user-select:none">성장율<span class="sort-arrow"> ↕</span></th>'+
@@ -3924,6 +4039,7 @@ function hsSwitchTab(cos){
         '<td style="text-align:right;color:#27ae60">'+(d.lc>0?fmtW(d.lc):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td style="text-align:right;color:#e67e22">'+(d.mc>0?fmtW(d.mc):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td style="text-align:right;color:#8e44ad">'+(d.rc>0?fmtW(d.rc):'<span style="color:#ccc">-</span>')+'</td>'+
+        _wsGrpBadgeTd(d)+
         '<td style="text-align:right;font-weight:700">'+fmtW(d.tc)+'</td>'+
         '<td style="text-align:right;color:#80868b">'+(d.tcp>0?fmtW(d.tcp):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td>'+gRow(growth(d.tc,d.tcp))+'</td>'+
@@ -4008,12 +4124,13 @@ function sortHsTable(sortKey){
 function showHighSalesDetail(firm, cos, ind){
   const d=(window._hsFirms||[]).find(x=>x.firm===firm&&x.cos===cos&&x.ind===ind);
   if(!d)return;
-  const grps=[
+  const _grpsAll=[
     {key:'wire', icon:'⚡',name:'전선',color:'#0f3460',cur:d.wc,cmp:d.wcp},
     {key:'light',icon:'💡',name:'조명',color:'#27ae60',cur:d.lc,cmp:d.lcp},
     {key:'mat',  icon:'🔩',name:'부자재',color:'#e67e22',cur:d.mc,cmp:d.mcp},
     {key:'mro',  icon:'🛒',name:'MRO',color:'#8e44ad',cur:d.rc,cmp:d.rcp},
-  ].filter(g=>g.cur>0||g.cmp>0);
+  ];
+  const grps=_grpsAll.filter(g=>g.cur>0||g.cmp>0);
   const escFirm=firm.replace(/"/g,'&quot;');
   const escCos=cos.replace(/"/g,'&quot;');
   const escInd=ind.replace(/"/g,'&quot;');
@@ -4055,6 +4172,7 @@ function showHighSalesDetail(firm, cos, ind){
       '</tr>';
   });
   const totDiff=d.tc-d.tcp;
+  rows.push(_wsMissRows(_grpsAll, firm, ind, hsMgmtKey(firm,cos,ind)));
   rows.push(
     '<tr style="font-weight:700;border-top:2px solid #e8eaed;background:#f8f9fa">'+
     '<td>📊 합계</td>'+
@@ -4652,6 +4770,7 @@ function brandCosPopup(brand){
     '<div class="drill-kpi-item" style="border-color:'+(totRate!=null?_brandRateColor(totRate):'#9aa0a6')+'"><div class="dv" style="color:'+(totRate!=null?_brandRateColor(totRate):'#9aa0a6')+'">'+(totRate!=null?totRate.toFixed(1)+'%':'-')+'</div><div class="dl">목표 달성율</div></div>';
   window._mpopSort={key:'cur',dir:-1};
   window._mpop={cols:_BRAND_MPOP_COLS,mult:1.3,cosList:cosList,tot:tot,metricsRow:_brandMetricsRow,rowAttr:function(c){return 'class="brand-cos-row" data-brand="'+v3_esc(brand)+'" data-cos="'+v3_esc(c.name)+'" style="cursor:pointer" title="클릭: 거래처·상품별 판매현황"';}};
+  window._mpop.kind='brand'; window._mpop.key=brand; window._mpopTab='cos'; if(typeof _mpopUpdateSub==='function')_mpopUpdateSub();
   _mpopRender();
   _openDrillModal();
 }
@@ -4771,6 +4890,7 @@ function catCosPopup(cat){
     '<div class="drill-kpi-item" style="border-color:'+(totRate!=null?_brandRateColor(totRate):'#9aa0a6')+'"><div class="dv" style="color:'+(totRate!=null?_brandRateColor(totRate):'#9aa0a6')+'">'+(totRate!=null?totRate.toFixed(1)+'%':'-')+'</div><div class="dl">목표 달성율</div></div>';
   window._mpopSort={key:'cur',dir:-1};
   window._mpop={cols:_CAT_MPOP_COLS,mult:1.17,cosList:cosList,tot:tot,metricsRow:_catMetricsRow,rowAttr:function(c){return 'class="lcat-cos-row" data-cat="'+v3_esc(cat)+'" data-cos="'+v3_esc(c.name)+'" style="cursor:pointer" title="클릭: 거래처별 상품내역"';}};
+  window._mpop.kind='cat'; window._mpop.key=cat; window._mpopTab='cos'; if(typeof _mpopUpdateSub==='function')_mpopUpdateSub();
   _mpopRender();
   _openDrillModal();
 }
@@ -4877,12 +4997,13 @@ function showRegionFirmDetail(firmName, cosName){
     d.mc+=r.mc||0;d.mcp+=r.mcp||0;d.rc+=r.rc||0;d.rcp+=r.rcp||0;
     d.tc+=r.tc||0;d.tcp+=r.tcp||0;
   });
-  const grps=[
+  const _grpsAll=[
     {key:'wire', icon:'⚡',name:'전선',   color:'#0f3460',cur:d.wc, cmp:d.wcp},
     {key:'light',icon:'💡',name:'조명',   color:'#27ae60',cur:d.lc, cmp:d.lcp},
     {key:'mat',  icon:'🔩',name:'부자재', color:'#e67e22',cur:d.mc, cmp:d.mcp},
     {key:'mro',  icon:'🛒',name:'MRO',   color:'#8e44ad',cur:d.rc, cmp:d.rcp},
-  ].filter(g=>g.cur>0||g.cmp>0);
+  ];
+  const grps=_grpsAll.filter(g=>g.cur>0||g.cmp>0);
   const escF=firmName.replace(/"/g,'&quot;');
   const escC=cosName.replace(/"/g,'&quot;');
   const totDiff=d.tc-d.tcp;
@@ -4914,6 +5035,7 @@ function showRegionFirmDetail(firmName, cosName){
       '<td style="text-align:right;font-weight:700;color:'+rc2+'">'+(rate2!=='-'?rate2+'%':'-')+'</td>'+
       '</tr>';
   });
+  rows.push(_wsMissRows(_grpsAll, firmName, (allFirmRows[0]||{}).ind||'', 'region_'+firmName));
   rows.push('<tr style="font-weight:700;border-top:2px solid #e8eaed;background:#f8f9fa">'+
     '<td>📊 합계</td>'+
     '<td style="text-align:right">'+fmtW(d.tc)+'</td>'+
@@ -6357,6 +6479,365 @@ window._sheetBulkSave=function(){
   document.addEventListener('visibilitychange', function(){ if(!document.hidden) _verCheck(); });
   setInterval(_verCheck, 5*60*1000);
 })();
+</script>
+
+
+<script>
+// ══ 🎯 품목 확대 기회 (화이트스페이스 + 갭 스코어) ══════════════════
+// 매출 구간: 기존 시트 기준(300만 / 500만) 재사용
+function _wsBand(tc){ if(!(tc>0))return 'D0'; if(tc<3000000)return 'D1'; if(tc<5000000)return 'D2'; return 'D3'; }
+
+// 회원사 단위 집계 (메인 코스 필터 반영)
+function _wsFirms(){
+  var rows=_wsAllRows();
+  var sel=window._dashSelectedCos, selInd=window._dashSelectedInd;
+  if(sel&&sel.size>0) rows=rows.filter(function(r){ return sel.has((r.cos||'').trim()); });
+  if(selInd&&selInd.size>0) rows=rows.filter(function(r){ return selInd.has((r.ind||'').trim()); });
+  var map={};
+  rows.forEach(function(r){
+    if(!r.firm)return;
+    var k=r.firm+'|||'+(r.cos||'')+'|||'+(r.ind||'');
+    var d=map[k];
+    if(!d)d=map[k]={firm:r.firm,cos:r.cos||'',ind:r.ind||'기타',
+      tc:0,tcp:0,wc:0,wcp:0,lc:0,lcp:0,mc:0,mcp:0,rc:0,rcp:0};
+    d.tc+=r.tc||0; d.tcp+=r.tcp||0;
+    d.wc+=r.wc||0; d.wcp+=r.wcp||0; d.lc+=r.lc||0; d.lcp+=r.lcp||0;
+    d.mc+=r.mc||0; d.mcp+=r.mcp||0; d.rc+=r.rc||0; d.rcp+=r.rcp||0;
+  });
+  return Object.keys(map).map(function(k){ return map[k]; });
+}
+
+// 세그먼트(업종군 × 매출구간)별 제품군 구성비 중앙값 — 0도 포함해 계산
+// → 세그먼트 과반이 안 쓰는 품목은 중앙값 0이 되어 자동으로 기회에서 빠진다
+function _wsMedians(firms){
+  var seg={};
+  function put(key,d){
+    var tot=d.tc; if(!(tot>0))return;
+    var b=seg[key]; if(!b)b=seg[key]={n:0,wire:[],light:[],mat:[],mro:[]};
+    b.n++;
+    b.wire.push((d.wc||0)/tot); b.light.push((d.lc||0)/tot);
+    b.mat.push((d.mc||0)/tot);  b.mro.push((d.rc||0)/tot);
+  }
+  firms.forEach(function(d){
+    put(d.ind+'|'+_wsBand(d.tc), d);
+    put(d.ind+'|*', d);
+    put('*|*', d);
+  });
+  function med(a){
+    if(!a.length)return 0;
+    var b=a.slice().sort(function(x,y){return x-y;});
+    var m=Math.floor(b.length/2);
+    return b.length%2?b[m]:(b[m-1]+b[m])/2;
+  }
+  var out={};
+  Object.keys(seg).forEach(function(k){
+    var b=seg[k];
+    out[k]={n:b.n,wire:med(b.wire),light:med(b.light),mat:med(b.mat),mro:med(b.mro)};
+  });
+  return out;
+}
+// 세그먼트 선택: 표본 5곳 미만이면 업종군 전체 → 전체 순으로 완화
+function _wsPickSeg(meds,d){
+  var k1=d.ind+'|'+_wsBand(d.tc);
+  if(meds[k1]&&meds[k1].n>=5)return {key:k1,m:meds[k1],lbl:d.ind+' · '+_wsBandLbl(_wsBand(d.tc))};
+  var k2=d.ind+'|*';
+  if(meds[k2]&&meds[k2].n>=5)return {key:k2,m:meds[k2],lbl:d.ind+' 전체'};
+  return {key:'*|*',m:meds['*|*']||{n:0,wire:0,light:0,mat:0,mro:0},lbl:'전체 회원사'};
+}
+function _wsBandLbl(b){ return b==='D3'?'500만원 이상':b==='D2'?'300~499만원':b==='D1'?'300만원 미만':'올해 매출 0'; }
+
+// 회원사별 미취급 제품군 + 갭 스코어
+function _wsScore(firms){
+  var meds=_wsMedians(firms);
+  firms.forEach(function(d){
+    var seg=_wsPickSeg(meds,d);
+    d._seg=seg;
+    d._miss=[]; d._gap=0; d._gapDetail=[];
+    WS_GRPS.forEach(function(g){
+      var has=((d[g.cur]||0)+(d[g.prv]||0))>0;
+      if(has)return;
+      d._miss.push(g);
+      var share=seg.m[g.key]||0;
+      var exp=Math.round((d.tc||0)*share);
+      if(exp>0){ d._gap+=exp; d._gapDetail.push({g:g,share:share,exp:exp}); }
+    });
+    d._on=4-d._miss.length;
+  });
+  return firms;
+}
+
+window._wsFilter='mro';
+window._wsSort={key:'gap',dir:-1};
+
+window.wsSetFilter=function(k){ window._wsFilter=k; window.renderWsPanel(); };
+window.wsSetSort=function(k){
+  var st=window._wsSort;
+  st.dir=(st.key===k)?-st.dir:-1; st.key=k;
+  window.renderWsPanel();
+};
+
+window.renderWsPanel=function(){
+  var box=document.getElementById('ws-content'); if(!box)return;
+  var all=_wsScore(_wsFirms());
+  // 올해 매출이 있는 회원사만 (휴면은 별도 시트에서 관리)
+  var live=all.filter(function(d){ return d.tc>0; });
+
+  var counts={all:live.length};
+  WS_GRPS.forEach(function(g){
+    counts[g.key]=live.filter(function(d){ return ((d[g.cur]||0)+(d[g.prv]||0))===0; }).length;
+  });
+
+  // 필터 칩
+  var fb=document.getElementById('ws-filter');
+  if(fb){
+    var chips='<span class="ws-flabel">🔎 미취급 제품군</span>';
+    chips+='<span class="ws-chip'+(window._wsFilter==='all'?' sel':'')+'" onclick="wsSetFilter(\'all\')">전체 <b>'+counts.all+'</b></span>';
+    WS_GRPS.forEach(function(g){
+      chips+='<span class="ws-chip'+(window._wsFilter===g.key?' sel':'')+'" onclick="wsSetFilter(\''+g.key+'\')">'+g.icon+' '+g.name+' 미취급 <b>'+counts[g.key]+'</b></span>';
+    });
+    chips+='<button class="ws-csv" onclick="wsExportCsv()">📤 CSV 내보내기</button>';
+    fb.innerHTML=chips;
+  }
+
+  var list=live;
+  var fk=window._wsFilter;
+  var fg=null;
+  if(fk!=='all'){
+    WS_GRPS.forEach(function(g){ if(g.key===fk)fg=g; });
+    if(fg)list=live.filter(function(d){ return ((d[fg.cur]||0)+(d[fg.prv]||0))===0; });
+  }
+
+  // KPI
+  var kpi=document.getElementById('ws-kpi');
+  if(kpi){
+    var sumTc=list.reduce(function(s,d){return s+(d.tc||0);},0);
+    var sumGap=list.reduce(function(s,d){return s+(d._gap||0);},0);
+    var adopt=null;
+    if(fg){
+      var st=_wsAdoptStats(), tn=0, tt=0;
+      Object.keys(st).forEach(function(k){ tn+=st[k][fg.key]||0; tt+=st[k].total||0; });
+      adopt=tt>0?Math.round(tn/tt*100):null;
+    }
+    kpi.innerHTML=
+      '<div class="kpi c1"><div class="kpi-lbl">'+(fg?fg.icon+' '+fg.name+' 미취급 회원사':'대상 회원사')+'</div><div class="kpi-val">'+list.length+'개</div><div class="kpi-note">전체 '+counts.all+'개 중 '+(counts.all?Math.round(list.length/counts.all*100):0)+'%</div></div>'+
+      '<div class="kpi c2"><div class="kpi-lbl">해당 회원사 총매출</div><div class="kpi-val">'+fmtW(sumTc)+'</div><div class="kpi-note">이미 거래 중인 매출 기반</div></div>'+
+      '<div class="kpi c3"><div class="kpi-lbl">'+(fg?'전체 '+fg.name+' 채택률':'평균 취급 제품군')+'</div><div class="kpi-val">'+(fg?(adopt!=null?adopt+'%':'-'):(live.length?(live.reduce(function(s,d){return s+d._on;},0)/live.length).toFixed(1):'0')+'/4')+'</div><div class="kpi-note">'+(fg?'회원사 수 기준 · 낮으면 구조적 미취급 가능':'취급 제품군 수 평균')+'</div></div>'+
+      '<div class="kpi c4"><div class="kpi-lbl">추가 가능 매출 합계</div><div class="kpi-val">'+fmtW(sumGap)+'</div><div class="kpi-note">⚠ 참고 수치 · 통계적 추정</div></div>';
+  }
+
+  // 정렬
+  var st2=window._wsSort;
+  var sorted=list.slice().sort(function(a,b){
+    var va,vb;
+    if(st2.key==='gap'){va=a._gap;vb=b._gap;}
+    else if(st2.key==='on'){va=a._on;vb=b._on;}
+    else if(st2.key==='tcp'){va=a.tcp;vb=b.tcp;}
+    else if(st2.key==='gr'){va=growth(a.tc,a.tcp);vb=growth(b.tc,b.tcp);if(va==null)va=-1e12;if(vb==null)vb=-1e12;}
+    else {va=a.tc;vb=b.tc;}
+    return st2.dir*(va-vb);
+  });
+
+  function th(key,lbl,align){
+    var act=st2.key===key, ar=act?(st2.dir<0?' ▼':' ▲'):' ↕';
+    return '<th style="text-align:'+(align||'right')+';cursor:pointer;user-select:none;'+(act?'color:#1a73e8':'')+'" onclick="wsSetSort(\''+key+'\')">'+lbl+'<span style="font-size:10px;color:#9aa0a6">'+ar+'</span></th>';
+  }
+  var esc=function(s){return String(s||'').replace(/"/g,'&quot;');};
+  var body=sorted.slice(0,300).map(function(d,i){
+    var mk=lsMgmtKey(d.firm,d.cos,d.ind);
+    var stt=(window.LS_MGMT&&window.LS_MGMT[mk])||{};
+    var hasMemo=!!(stt.memo&&stt.memo.trim());
+    var missTxt=d._miss.length
+      ? d._miss.map(function(g){ return '<span style="display:inline-block;font-size:10px;padding:1px 5px;border-radius:3px;margin-right:3px;background:#fafafa;color:#9aa0a6;border:1px dashed #dadce0;font-weight:700">'+g.icon+g.name+'</span>'; }).join('')
+      : '<span style="color:#0f9d58;font-size:11px;font-weight:700">4종 모두 취급</span>';
+    var topGap=d._gapDetail.slice().sort(function(x,y){return y.exp-x.exp;})[0];
+    return '<tr class="cat-row ws-row" data-firm="'+esc(d.firm)+'" data-cos="'+esc(d.cos)+'" data-ind="'+esc(d.ind)+'" style="cursor:pointer">'+
+      '<td>'+rkSp(i)+'</td>'+
+      '<td><b>'+v3_esc(d.firm)+'</b></td>'+
+      '<td><span class="ind-tag ind-'+v3_esc(d.ind||'')+'">'+v3_esc(d.ind)+'</span></td>'+
+      '<td><span class="cos-tag">'+v3_esc(d.cos)+'</span></td>'+
+      _wsGrpBadgeTd(d)+
+      '<td style="text-align:right;font-weight:700">'+fmtW(d.tc)+'</td>'+
+      '<td style="text-align:right;color:#80868b">'+(d.tcp>0?fmtW(d.tcp):'-')+'</td>'+
+      '<td style="text-align:center">'+gRow(growth(d.tc,d.tcp))+'</td>'+
+      '<td style="text-align:right;font-weight:800;color:'+(d._gap>0?'#d93025':'#9aa0a6')+'">'+(d._gap>0?'＋'+fmtW(d._gap):'-')+'</td>'+
+      '<td>'+missTxt+'</td>'+
+      '<td style="text-align:center">'+(topGap
+        ? '<button class="ws-propose-btn" data-mkey="'+esc(mk)+'" data-firm="'+esc(d.firm)+'" data-grp="'+esc(topGap.g.name)+'" style="border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;background:#34a853;color:#fff;cursor:pointer">＋ 제안</button>'
+        : '<span style="color:#ccc">-</span>')+'</td>'+
+      '<td style="text-align:center">'+(hasMemo?'📝':'')+'</td>'+
+      '</tr>';
+  }).join('');
+
+  box.innerHTML='<div class="tcard" style="margin-bottom:0">'+
+    '<h3>🎯 품목 확대 기회 <span style="font-size:11px;color:#9aa0a6;font-weight:400">('+(fg?fg.name+' 미취급 · ':'')+sorted.length+'개'+(sorted.length>300?' 중 상위 300개 표시':'')+')</span></h3>'+
+    '<div class="sub2">취급 = 색상 배지 / 미취급 = 점선 배지 · 추가 가능 매출은 동급 회원사 구성비 중앙값 대비 부족분(참고 수치) · 회원사 클릭 시 상세</div>'+
+    '<table><thead><tr>'+
+      '<th>순위</th><th>회원사</th><th>업종군</th><th>코스</th>'+
+      th('on','취급','center')+
+      th('tc','총매출')+th('tcp','전년매출')+th('gr','성장률','center')+
+      th('gap','추가 가능 매출')+
+      '<th>미취급 제품군</th><th style="text-align:center">액션</th><th style="text-align:center">메모</th>'+
+    '</tr></thead><tbody>'+(body||'<tr><td colspan="12" style="text-align:center;padding:24px;color:#9aa0a6">해당 조건의 회원사가 없습니다</td></tr>')+'</tbody></table>'+
+    '<div style="margin-top:12px;background:#fef7e0;border:1px solid #f5d78e;color:#7a5b00;border-radius:8px;padding:9px 12px;font-size:11px;line-height:1.7">'+
+    '⚠️ <b>추가 가능 매출은 통계적 추정치입니다.</b> 동일 업종군·매출구간 회원사의 제품군 구성비 <b>중앙값</b>을 기준으로 계산하며, 표본이 5곳 미만이면 업종군 전체 → 전체 순으로 기준을 넓힙니다. 세그먼트 과반이 쓰지 않는 품목은 중앙값이 0이 되어 기회에서 자동 제외됩니다. 회원사 사업 형태상 구조적으로 안 쓰는 품목일 수 있으니 <b>영업 판단을 대체하지 않는 참고 수치</b>로만 사용하세요.'+
+    '</div></div>';
+
+  var panel=document.getElementById('panel-whitespace');
+  if(panel&&!panel._wsInit){
+    panel._wsInit=true;
+    panel.addEventListener('click',function(e){
+      if(e.target.closest('.ws-propose-btn'))return;
+      var row=e.target.closest('.ws-row');
+      if(row&&typeof showRegionFirmDetail==='function')showRegionFirmDetail(row.dataset.firm,row.dataset.cos);
+    });
+  }
+};
+
+// CSV 내보내기 (현재 필터·정렬 상태 그대로)
+window.wsExportCsv=function(){
+  var all=_wsScore(_wsFirms()).filter(function(d){return d.tc>0;});
+  var fk=window._wsFilter, fg=null;
+  WS_GRPS.forEach(function(g){ if(g.key===fk)fg=g; });
+  var list=fg?all.filter(function(d){return ((d[fg.cur]||0)+(d[fg.prv]||0))===0;}):all;
+  var st=window._wsSort;
+  list.sort(function(a,b){
+    var va=st.key==='gap'?a._gap:st.key==='on'?a._on:st.key==='tcp'?a.tcp:a.tc;
+    var vb=st.key==='gap'?b._gap:st.key==='on'?b._on:st.key==='tcp'?b.tcp:b.tc;
+    return st.dir*(va-vb);
+  });
+  var head=['회원사','업종군','코스','취급수','총매출','전년매출','성장률(%)','추가 가능 매출(참고)','미취급 제품군','비교 기준'];
+  var lines=[head.join(',')];
+  list.forEach(function(d){
+    var gr=growth(d.tc,d.tcp);
+    lines.push([
+      '"'+String(d.firm).replace(/"/g,'""')+'"', d.ind, d.cos, d._on+'/4',
+      Math.round(d.tc), Math.round(d.tcp), (gr==null?'':gr.toFixed(1)),
+      Math.round(d._gap),
+      '"'+d._miss.map(function(g){return g.name;}).join(' ')+'"',
+      '"'+(d._seg?d._seg.lbl:'')+'"'
+    ].join(','));
+  });
+  var blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='품목확대기회_'+(fg?fg.name+'미취급_':'')+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+};
+</script>
+
+
+<script>
+// ══ 🎯 브랜드·카테고리 미거래 후보 회원사 ══════════════════════════
+// 회원사 단위 집계(전달받은 행 기준)
+function _wsAggFirms(rows){
+  var map={};
+  rows.forEach(function(r){
+    if(!r.firm)return;
+    var k=r.firm+'|||'+(r.cos||'')+'|||'+(r.ind||'');
+    var d=map[k];
+    if(!d)d=map[k]={firm:r.firm,cos:r.cos||'',ind:r.ind||'기타',
+      tc:0,tcp:0,wc:0,wcp:0,lc:0,lcp:0,mc:0,mcp:0,rc:0,rcp:0};
+    d.tc+=r.tc||0; d.tcp+=r.tcp||0;
+    d.wc+=r.wc||0; d.wcp+=r.wcp||0; d.lc+=r.lc||0; d.lcp+=r.lcp||0;
+    d.mc+=r.mc||0; d.mcp+=r.mcp||0; d.rc+=r.rc||0; d.rcp+=r.rcp||0;
+  });
+  return Object.keys(map).map(function(k){return map[k];});
+}
+// 특정 브랜드/대분류를 거래 중(올해·전년 중 1회 이상)인 회원사 집합
+function _wsBuyerSet(kind,key){
+  var f=(kind==='brand')
+    ? function(r){ return (r.brand||'').trim()===key; }
+    : function(r){ return (r.major||'').trim()===key; };
+  var set={};
+  _brandRows().forEach(function(r){
+    if(!r.firm||!f(r))return;
+    if(((r.tc||0)+(r.tcp||0))>0) set[r.firm]=1;
+  });
+  return set;
+}
+// 미거래 후보 목록 (같은 필터 안의 회원사 중 해당 품목 미거래)
+function _wsCandidates(kind,key){
+  var rows=_brandRows();
+  var ck=kind+'|'+key+'|'+rows.length;
+  if(window._wsCandKey===ck&&window._wsCandCache)return window._wsCandCache;
+  var buyers=_wsBuyerSet(kind,key);
+  var firms=_wsAggFirms(rows).filter(function(d){ return d.tc>0 && !buyers[d.firm]; });
+  // 업종군별 채택률 (해당 품목 기준)
+  var byInd={}, seen={};
+  _wsAggFirms(rows).forEach(function(d){
+    if(seen[d.ind+'|'+d.firm])return; seen[d.ind+'|'+d.firm]=1;
+    var b=byInd[d.ind]; if(!b)b=byInd[d.ind]={total:0,buy:0};
+    b.total++; if(buyers[d.firm])b.buy++;
+  });
+  var maxTc=firms.reduce(function(m,d){return Math.max(m,d.tc);},0)||1;
+  firms.forEach(function(d){
+    var b=byInd[d.ind]||{total:0,buy:0};
+    d._adoptN=b.buy; d._adoptT=b.total;
+    d._adopt=b.total?b.buy/b.total:0;
+    var s=0.5*(d.tc/maxTc)+0.5*d._adopt;
+    d._stars=Math.max(1,Math.min(5,Math.round(s*5)));
+  });
+  firms.sort(function(a,b){
+    var sa=0.5*(a.tc/maxTc)+0.5*a._adopt, sb=0.5*(b.tc/maxTc)+0.5*b._adopt;
+    return (sb-sa)||(b.tc-a.tc);
+  });
+  window._wsCandKey=ck; window._wsCandCache=firms;
+  return firms;
+}
+// 후보 탭 렌더
+function _mpopRenderCand(){
+  var mp=window._mpop; if(!mp||!mp.kind)return;
+  var list=_wsCandidates(mp.kind,mp.key);
+  var esc=function(s){return String(s||'').replace(/"/g,'&quot;');};
+  document.getElementById('drill-thead').innerHTML=
+    '<tr><th>순위</th><th>회원사</th><th>업종군</th><th>코스</th><th style="text-align:center">취급 제품군</th>'+
+    '<th style="text-align:right">총매출</th><th style="text-align:right">전년매출</th>'+
+    '<th style="text-align:center">동일 업종군 채택률</th><th style="text-align:center">추천도</th><th style="text-align:center">액션</th></tr>';
+  var body=list.slice(0,200).map(function(d,i){
+    var mk=lsMgmtKey(d.firm,d.cos,d.ind);
+    return '<tr>'+
+      '<td>'+rkSp(i)+'</td>'+
+      '<td><b>'+v3_esc(d.firm)+'</b></td>'+
+      '<td><span class="ind-tag ind-'+v3_esc(d.ind||'')+'">'+v3_esc(d.ind)+'</span></td>'+
+      '<td><span class="cos-tag">'+v3_esc(d.cos)+'</span></td>'+
+      _wsGrpBadgeTd(d)+
+      '<td style="text-align:right;font-weight:700">'+fmtW(d.tc)+'</td>'+
+      '<td style="text-align:right;color:#80868b">'+(d.tcp>0?fmtW(d.tcp):'-')+'</td>'+
+      '<td style="text-align:center"><b>'+Math.round(d._adopt*100)+'%</b> <span style="color:#9aa0a6;font-size:10px">('+d._adoptN+'/'+d._adoptT+')</span></td>'+
+      '<td style="text-align:center;color:#f9ab00;font-weight:700;letter-spacing:1px">'+'★'.repeat(d._stars)+'<span style="color:#e8eaed">'+'★'.repeat(5-d._stars)+'</span></td>'+
+      '<td style="text-align:center"><button class="ws-propose-btn" data-mkey="'+esc(mk)+'" data-firm="'+esc(d.firm)+'" data-grp="'+esc(mp.key)+'" style="border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;background:#34a853;color:#fff;cursor:pointer">＋ 제안 등록</button></td>'+
+      '</tr>';
+  }).join('');
+  var note='<tr><td colspan="10" style="padding:10px 12px;background:#fef7e0;color:#7a5b00;font-size:11px;line-height:1.7;border-top:2px solid #f5d78e">'+
+    '💡 <b>추천도</b> = 총매출 규모(50%) + 동일 업종군 채택률(50%). '+
+    '채택률이 낮은 업종군은 <b>구조적으로 쓰지 않는 품목</b>일 수 있으니 별점이 낮은 후보는 사전 확인 후 접촉하세요.'+
+    (list.length>200?' · 후보 '+list.length+'곳 중 상위 200곳만 표시됩니다.':'')+'</td></tr>';
+  document.getElementById('drill-tbody').innerHTML=(body+note)||'<tr><td colspan="10" style="text-align:center;padding:24px;color:#9aa0a6">미거래 후보가 없습니다 (모든 회원사가 이미 거래 중)</td></tr>';
+}
+// 탭 전환
+window.mpopSwitchTab=function(t){
+  window._mpopTab=t;
+  _mpopUpdateSub();
+  if(t==='cand')_mpopRenderCand(); else _mpopRender();
+};
+function _mpopUpdateSub(){
+  var mp=window._mpop; if(!mp||!mp.kind)return;
+  var el=document.getElementById('drill-sub'); if(!el)return;
+  var nCand=_wsCandidates(mp.kind,mp.key).length;
+  var t=window._mpopTab||'cos';
+  function tab(k,lbl){
+    var on=t===k;
+    return '<span onclick="mpopSwitchTab(\''+k+'\')" style="display:inline-block;padding:5px 12px;margin-right:6px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;'+
+      (on?'background:#1a73e8;color:#fff':'background:#f1f3f4;color:#5f6368')+'">'+lbl+'</span>';
+  }
+  var need=Math.max(0,Math.round(mp.tot.firmPrev*mp.mult)-mp.tot.firmCur);
+  el.innerHTML=tab('cos','코스별 현황')+tab('cand','미거래 후보 '+nCand)+
+    '<span style="font-size:11px;color:#9aa0a6;margin-left:6px">목표 = 전년 × '+mp.mult+'</span>'+
+    (need>0?'<span style="margin-left:8px;background:#fce8e6;color:#c5221f;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700">거래처수 목표까지 '+need+'곳 부족</span>'
+           :'<span style="margin-left:8px;background:#e6f4ea;color:#137333;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700">거래처수 목표 달성</span>');
+}
+window._mpopUpdateSub=_mpopUpdateSub;
 </script>
 
 </body>
