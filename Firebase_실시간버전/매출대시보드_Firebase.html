@@ -5322,6 +5322,9 @@ function dashRerender(){
   // 휴면 패널이 활성화되어 있으면 코스 필터 동기화
   const _dmPanel=document.getElementById('panel-dormant');
   if(_dmPanel&&_dmPanel.classList.contains('active')&&typeof window.renderDormantPanel==='function')window.renderDormantPanel();
+  // 품목 확대 기회 패널이 활성화되어 있으면 코스 필터 동기화
+  const _wsPanel=document.getElementById('panel-whitespace');
+  if(_wsPanel&&_wsPanel.classList.contains('active')&&typeof window.renderWsPanel==='function')window.renderWsPanel();
   // 메모 패널이 활성화되어 있으면 코스 필터 동기화
   const _memoPanel=document.getElementById('panel-memo');
   if(_memoPanel&&_memoPanel.classList.contains('active')&&typeof window.renderMemoSheet==='function'){
@@ -6730,6 +6733,13 @@ window.wsExportCsv=function(){
 <script>
 // ══ 🎯 브랜드·카테고리 미거래 후보 회원사 ══════════════════════════
 // 회원사 단위 집계(전달받은 행 기준)
+// 현재 코스·업종군 필터 상태 서명 (캐시 키용)
+function _wsFilterSig(){
+  var c=window._dashSelectedCos, i=window._dashSelectedInd;
+  var cs=(c&&c.size)?Array.from(c).sort().join(','):'';
+  var is=(i&&i.size)?Array.from(i).sort().join(','):'';
+  return cs+'/'+is;
+}
 function _wsAggFirms(rows){
   var map={};
   rows.forEach(function(r){
@@ -6759,7 +6769,7 @@ function _wsBuyerSet(kind,key){
 // 미거래 후보 목록 (같은 필터 안의 회원사 중 해당 품목 미거래)
 function _wsCandidates(kind,key){
   var rows=_brandRows();
-  var ck=kind+'|'+key+'|'+rows.length;
+  var ck=kind+'|'+key+'|'+rows.length+'|'+_wsFilterSig();
   if(window._wsCandKey===ck&&window._wsCandCache)return window._wsCandCache;
   var buyers=_wsBuyerSet(kind,key);
   var firms=_wsAggFirms(rows).filter(function(d){ return d.tc>0 && !buyers[d.firm]; });
