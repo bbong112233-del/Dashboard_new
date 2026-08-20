@@ -3059,7 +3059,7 @@ function lsSwitchTab(cos){
     '<th>순위</th><th>거래처명</th><th>업종군</th>'+(showCos?'<th>코스</th>':'')+
     '<th style="text-align:right">⚡전선</th><th style="text-align:right">💡조명</th>'+
     '<th style="text-align:right">🔩부자재</th><th style="text-align:right">🛒MRO</th>'+
-    '<th style="text-align:center" title="올해·전년 중 한 번이라도 거래가 있으면 취급">취급</th>'+
+    '<th style="text-align:center" title="올해·전년 중 한 번이라도 거래가 있으면 취급">취급 제품군</th>'+
     '<th class="sort-th" data-tb="ls" data-sort="tc" style="text-align:right;cursor:pointer;user-select:none">합계(현재)<span class="sort-arrow"> ▼</span></th><th class="sort-th" data-tb="ls" data-sort="tcp" style="text-align:right;cursor:pointer;user-select:none">전년매출<span class="sort-arrow"> ↕</span></th>'+
     '<th class="sort-th" data-tb="ls" data-sort="gr" style="cursor:pointer;user-select:none">성장율<span class="sort-arrow"> ↕</span></th>'+
     '<th class="sort-th" data-tb="ls" data-sort="iCnt" style="text-align:right;cursor:pointer;user-select:none">상품수(현재)<span class="sort-arrow"> ↕</span></th>'+
@@ -3087,7 +3087,7 @@ function lsSwitchTab(cos){
         '<td style="text-align:right;color:#27ae60">'+(d.lc>0?fmtW(d.lc):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td style="text-align:right;color:#e67e22">'+(d.mc>0?fmtW(d.mc):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td style="text-align:right;color:#8e44ad">'+(d.rc>0?fmtW(d.rc):'<span style="color:#ccc">-</span>')+'</td>'+
-        _wsGrpBadgeTd(d)+
+        _wsGrpBadgeTd(d,lsKey)+
         '<td style="text-align:right;font-weight:700">'+fmtW(d.tc)+'</td>'+
         '<td style="text-align:right;color:#80868b">'+(d.tcp>0?fmtW(d.tcp):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td>'+gRow(growth(d.tc,d.tcp))+'</td>'+
@@ -3111,10 +3111,10 @@ function _wsAllRows(){
   return (typeof GDATA!=='undefined'&&GDATA.allRows)?GDATA.allRows:[];
 }
 var WS_GRPS=[
-  {key:'wire', cur:'wc',prv:'wcp',icon:'⚡',name:'전선',  color:'#0f3460',bg:'#e7ecf5'},
-  {key:'light',cur:'lc',prv:'lcp',icon:'💡',name:'조명',  color:'#1e7e45',bg:'#e6f4ea'},
-  {key:'mat',  cur:'mc',prv:'mcp',icon:'🔩',name:'부자재',color:'#a55a12',bg:'#fdf0e3'},
-  {key:'mro',  cur:'rc',prv:'rcp',icon:'🛒',name:'MRO',   color:'#6c3483',bg:'#f3e8f8'}
+  {key:'wire', cur:'wc',prv:'wcp',icon:'⚡',name:'전선',  abbr:'전',color:'#0f3460',bg:'#e7ecf5',solid:'#0f3460'},
+  {key:'light',cur:'lc',prv:'lcp',icon:'💡',name:'조명',  abbr:'조',color:'#1e7e45',bg:'#e6f4ea',solid:'#1e7e45'},
+  {key:'mat',  cur:'mc',prv:'mcp',icon:'🔩',name:'부자재',abbr:'부',color:'#a55a12',bg:'#fdf0e3',solid:'#c2660f'},
+  {key:'mro',  cur:'rc',prv:'rcp',icon:'🛒',name:'MRO',   abbr:'M', color:'#6c3483',bg:'#f3e8f8',solid:'#6c3483'}
 ];
 // 업종군별 제품군 채택률(회원사 수 기준) — 제안 근거로 사용
 function _wsAdoptStats(){
@@ -3150,14 +3150,20 @@ function _wsAdoptTxt(grpKey,ind){
   return ' · 같은 '+(ind||'업종군')+' 회원사 '+a.n+'/'+a.total+'곳('+a.pct+'%)이 거래 중';
 }
 // 회원사 행에 넣는 취급/미취급 배지 <td> (상품군 4개 + n/4)
-function _wsGrpBadgeTd(d){
+function _wsGrpBadgeTd(d,mkey){
   var on=0, html='';
+  var ef=String(d.firm||'').replace(/"/g,'&quot;');
+  var ek=String(mkey||'').replace(/"/g,'&quot;');
+  var base='display:inline-flex;align-items:center;justify-content:center;width:22px;height:19px;margin-right:3px;border-radius:4px;font-size:11px;line-height:1;';
   WS_GRPS.forEach(function(g){
     var v=(d[g.cur]||0)+(d[g.prv]||0);
-    if(v>0){ on++;
-      html+='<span title="'+g.name+' 취급" style="display:inline-block;font-size:10px;padding:1px 4px;border-radius:3px;margin-right:2px;background:'+g.bg+';color:'+g.color+';font-weight:700">'+g.icon+'</span>';
+    if(v>0){
+      on++;
+      html+='<span title="'+g.name+' 취급 중" style="'+base+'font-weight:800;background:'+g.solid+';color:#fff">'+g.abbr+'</span>';
+    }else if(ek){
+      html+='<span class="ws-propose-btn" data-mkey="'+ek+'" data-firm="'+ef+'" data-grp="'+g.name+'" title="'+g.name+' 미취급 — 클릭하면 제안 메모 작성" style="'+base+'font-weight:700;background:#fff;color:#d0d3d7;border:1px solid #e8eaed;cursor:pointer">'+g.abbr+'</span>';
     }else{
-      html+='<span title="'+g.name+' 미취급 — 제안 대상" style="display:inline-block;font-size:10px;padding:1px 4px;border-radius:3px;margin-right:2px;background:#fafafa;color:#c9ccd0;border:1px dashed #dadce0;font-weight:700">'+g.icon+'</span>';
+      html+='<span title="'+g.name+' 미취급" style="'+base+'font-weight:700;background:#fff;color:#d0d3d7;border:1px solid #e8eaed">'+g.abbr+'</span>';
     }
   });
   var c=on===4?'#0f9d58':(on<=2?'#d93025':'#5f6368');
@@ -3182,13 +3188,13 @@ document.addEventListener('click',function(e){
   if(!e.target.closest)return;
   var b=e.target.closest('.ws-propose-btn');
   if(!b)return;
-  e.stopPropagation();
+  e.stopPropagation(); e.preventDefault();
   var mkey=b.getAttribute('data-mkey');
   if(!mkey||typeof lsOpenMemo!=='function')return;
   lsOpenMemo(mkey, b.getAttribute('data-firm')||'');
   var inp=document.getElementById('ls-memo-input');
   if(inp&&!inp.value.trim()){ inp.value='[품목 제안] '+(b.getAttribute('data-grp')||'')+' — '; inp.focus(); }
-});
+}, true);
 
 function showLowSalesDetail(firm, cos, ind){
   const d=(window._lsFirms||[]).find(x=>x.firm===firm&&x.cos===cos&&x.ind===ind);
@@ -3513,7 +3519,7 @@ function gsSwitchTab(cos){
     '<th>순위</th><th>거래처명</th><th>업종군</th>'+(showCos?'<th>코스</th>':'')+
     '<th style="text-align:right">⚡전선</th><th style="text-align:right">💡조명</th>'+
     '<th style="text-align:right">🔩부자재</th><th style="text-align:right">🛒MRO</th>'+
-    '<th style="text-align:center" title="올해·전년 중 한 번이라도 거래가 있으면 취급">취급</th>'+
+    '<th style="text-align:center" title="올해·전년 중 한 번이라도 거래가 있으면 취급">취급 제품군</th>'+
     '<th class="sort-th" data-tb="gs" data-sort="tc" style="text-align:right;cursor:pointer;user-select:none">합계(현재)<span class="sort-arrow"> ▼</span></th><th class="sort-th" data-tb="gs" data-sort="tcp" style="text-align:right;cursor:pointer;user-select:none">전년매출<span class="sort-arrow"> ↕</span></th>'+
     '<th class="sort-th" data-tb="gs" data-sort="gr" style="cursor:pointer;user-select:none">성장율<span class="sort-arrow"> ↕</span></th>'+
     '<th class="sort-th" data-tb="gs" data-sort="iCnt" style="text-align:right;cursor:pointer;user-select:none">상품수(현재)<span class="sort-arrow"> ↕</span></th>'+
@@ -3541,7 +3547,7 @@ function gsSwitchTab(cos){
         '<td style="text-align:right;color:#27ae60">'+(d.lc>0?fmtW(d.lc):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td style="text-align:right;color:#e67e22">'+(d.mc>0?fmtW(d.mc):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td style="text-align:right;color:#8e44ad">'+(d.rc>0?fmtW(d.rc):'<span style="color:#ccc">-</span>')+'</td>'+
-        _wsGrpBadgeTd(d)+
+        _wsGrpBadgeTd(d,lsKey)+
         '<td style="text-align:right;font-weight:700">'+fmtW(d.tc)+'</td>'+
         '<td style="text-align:right;color:#80868b">'+(d.tcp>0?fmtW(d.tcp):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td>'+gRow(growth(d.tc,d.tcp))+'</td>'+
@@ -3999,7 +4005,7 @@ function hsSwitchTab(cos){
     '<th>순위</th><th>거래처명</th><th>업종군</th>'+(showCos?'<th>코스</th>':'')+
     '<th style="text-align:right">⚡전선</th><th style="text-align:right">💡조명</th>'+
     '<th style="text-align:right">🔩부자재</th><th style="text-align:right">🛒MRO</th>'+
-    '<th style="text-align:center" title="올해·전년 중 한 번이라도 거래가 있으면 취급">취급</th>'+
+    '<th style="text-align:center" title="올해·전년 중 한 번이라도 거래가 있으면 취급">취급 제품군</th>'+
     '<th class="sort-th" data-tb="hs" data-sort="tc" style="text-align:right;cursor:pointer;user-select:none">합계(현재)<span class="sort-arrow"> ▼</span></th>'+
     '<th class="sort-th" data-tb="hs" data-sort="tcp" style="text-align:right;cursor:pointer;user-select:none">전년매출<span class="sort-arrow"> ↕</span></th>'+
     '<th class="sort-th" data-tb="hs" data-sort="gr" style="cursor:pointer;user-select:none">성장율<span class="sort-arrow"> ↕</span></th>'+
@@ -4030,7 +4036,7 @@ function hsSwitchTab(cos){
         '<td style="text-align:right;color:#27ae60">'+(d.lc>0?fmtW(d.lc):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td style="text-align:right;color:#e67e22">'+(d.mc>0?fmtW(d.mc):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td style="text-align:right;color:#8e44ad">'+(d.rc>0?fmtW(d.rc):'<span style="color:#ccc">-</span>')+'</td>'+
-        _wsGrpBadgeTd(d)+
+        _wsGrpBadgeTd(d,hsKey)+
         '<td style="text-align:right;font-weight:700">'+fmtW(d.tc)+'</td>'+
         '<td style="text-align:right;color:#80868b">'+(d.tcp>0?fmtW(d.tcp):'<span style="color:#ccc">-</span>')+'</td>'+
         '<td>'+gRow(growth(d.tc,d.tcp))+'</td>'+
@@ -6649,7 +6655,7 @@ window.renderWsPanel=function(){
       '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"'+(d.firm&&d.firm.length>12?' title="'+v3_esc(d.firm)+'"':'')+'><b>'+v3_esc(d.firm)+'</b></td>'+
       '<td><span class="ind-tag ind-'+v3_esc(d.ind||'')+'">'+v3_esc(d.ind)+'</span></td>'+
       '<td><span class="cos-tag">'+v3_esc(d.cos)+'</span></td>'+
-      _wsGrpBadgeTd(d)+
+      _wsGrpBadgeTd(d,mk)+
       '<td style="text-align:right;font-weight:700">'+fmtW(d.tc)+'</td>'+
       '<td style="text-align:right;color:#80868b">'+(d.tcp>0?fmtW(d.tcp):'-')+'</td>'+
       '<td style="text-align:center">'+gRow(growth(d.tc,d.tcp))+'</td>'+
@@ -6667,7 +6673,7 @@ window.renderWsPanel=function(){
     '<div class="sub2">취급 = 색상 배지 / 미취급 = 점선 배지 · 추가 가능 매출은 동급 회원사 구성비 중앙값 대비 부족분(참고 수치) · 회원사 클릭 시 상세</div>'+
     '<table><thead><tr>'+
       '<th>순위</th><th>회원사</th><th>업종군</th><th>코스</th>'+
-      th('on','취급','center')+
+      th('on','취급 제품군','center')+
       th('tc','총매출')+th('tcp','전년매출')+th('gr','성장률','center')+
       th('gap','추가 가능 매출')+
       '<th>미취급 제품군</th><th style="text-align:center">액션</th><th style="text-align:center">메모</th>'+
@@ -6802,7 +6808,7 @@ function _mpopRenderCand(){
       '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"'+(d.firm&&d.firm.length>12?' title="'+v3_esc(d.firm)+'"':'')+'><b>'+v3_esc(d.firm)+'</b></td>'+
       '<td><span class="ind-tag ind-'+v3_esc(d.ind||'')+'">'+v3_esc(d.ind)+'</span></td>'+
       '<td><span class="cos-tag">'+v3_esc(d.cos)+'</span></td>'+
-      _wsGrpBadgeTd(d)+
+      _wsGrpBadgeTd(d,mk)+
       '<td style="text-align:right;font-weight:700">'+fmtW(d.tc)+'</td>'+
       '<td style="text-align:right;color:#80868b">'+(d.tcp>0?fmtW(d.tcp):'-')+'</td>'+
       '<td style="text-align:center"><b>'+Math.round(d._adopt*100)+'%</b> <span style="color:#9aa0a6;font-size:10px">('+d._adoptN+'/'+d._adoptT+')</span></td>'+
