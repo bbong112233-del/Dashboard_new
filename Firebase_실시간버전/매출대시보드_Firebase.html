@@ -2236,13 +2236,14 @@ function sortLsTable(sortKey){
         '<input type="checkbox" class="ls-chk" data-lskey="'+esc(lsKey)+'" '+(isDone?'checked':'')+' style="width:15px;height:15px;cursor:pointer;accent-color:#0f9d58">'+
       '</td>'+
       '<td>'+rkSp(i)+'</td>'+
-      '<td><b>'+d.firm+'</b></td>'+
+      '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"'+(d.firm&&d.firm.length>12?' title="'+esc(d.firm)+'"':'')+'><b>'+d.firm+'</b></td>'+
       '<td><span class="ind-tag ind-'+v3_esc(d.ind||'')+'">'+d.ind+'</span></td>'+
       (showCos?'<td><span class="cos-tag">'+d.cos+'</span></td>':'')+
       '<td style="text-align:right;color:#0f3460">'+(d.wc>0?fmtW(d.wc):'<span style="color:#ccc">-</span>')+'</td>'+
       '<td style="text-align:right;color:#27ae60">'+(d.lc>0?fmtW(d.lc):'<span style="color:#ccc">-</span>')+'</td>'+
       '<td style="text-align:right;color:#e67e22">'+(d.mc>0?fmtW(d.mc):'<span style="color:#ccc">-</span>')+'</td>'+
       '<td style="text-align:right;color:#8e44ad">'+(d.rc>0?fmtW(d.rc):'<span style="color:#ccc">-</span>')+'</td>'+
+      _wsGrpBadgeTd(d,lsKey)+
       '<td style="text-align:right;font-weight:700">'+fmtW(d.tc)+'</td>'+
       '<td style="text-align:right;color:#80868b">'+(d.tcp>0?fmtW(d.tcp):'<span style="color:#ccc">-</span>')+'</td>'+
       '<td>'+gRow(growth(d.tc,d.tcp))+'</td>'+
@@ -3312,13 +3313,14 @@ function sortGsTable(sortKey){
         '<input type="checkbox" class="gs-chk" data-gskey="'+esc(lsKey)+'" '+(isDone?'checked':'')+' style="width:15px;height:15px;cursor:pointer;accent-color:#0f9d58">'+
       '</td>'+
       '<td>'+rkSp(i)+'</td>'+
-      '<td><b>'+d.firm+'</b></td>'+
+      '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"'+(d.firm&&d.firm.length>12?' title="'+esc(d.firm)+'"':'')+'><b>'+d.firm+'</b></td>'+
       '<td><span class="ind-tag ind-'+v3_esc(d.ind||'')+'">'+d.ind+'</span></td>'+
       (showCos?'<td><span class="cos-tag">'+d.cos+'</span></td>':'')+
       '<td style="text-align:right;color:#0f3460">'+(d.wc>0?fmtW(d.wc):'<span style="color:#ccc">-</span>')+'</td>'+
       '<td style="text-align:right;color:#27ae60">'+(d.lc>0?fmtW(d.lc):'<span style="color:#ccc">-</span>')+'</td>'+
       '<td style="text-align:right;color:#e67e22">'+(d.mc>0?fmtW(d.mc):'<span style="color:#ccc">-</span>')+'</td>'+
       '<td style="text-align:right;color:#8e44ad">'+(d.rc>0?fmtW(d.rc):'<span style="color:#ccc">-</span>')+'</td>'+
+      _wsGrpBadgeTd(d,lsKey)+
       '<td style="text-align:right;font-weight:700">'+fmtW(d.tc)+'</td>'+
       '<td style="text-align:right;color:#80868b">'+(d.tcp>0?fmtW(d.tcp):'<span style="color:#ccc">-</span>')+'</td>'+
       '<td>'+gRow(growth(d.tc,d.tcp))+'</td>'+
@@ -4092,13 +4094,14 @@ function sortHsTable(sortKey){
         '<input type="checkbox" class="hs-chk" data-hskey="'+esc(hsKey)+'" '+(hsDone?'checked':'')+' style="width:15px;height:15px;cursor:pointer;accent-color:#e67e22">'+
       '</td>'+
       '<td>'+rkSp(i)+'</td>'+
-      '<td><b>'+d.firm+'</b></td>'+
+      '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"'+(d.firm&&d.firm.length>12?' title="'+esc(d.firm)+'"':'')+'><b>'+d.firm+'</b></td>'+
       '<td><span class="ind-tag ind-'+v3_esc(d.ind||'')+'">'+d.ind+'</span></td>'+
       (showCos?'<td><span class="cos-tag">'+d.cos+'</span></td>':'')+
       '<td style="text-align:right;color:#0f3460">'+(d.wc>0?fmtW(d.wc):'<span style="color:#ccc">-</span>')+'</td>'+
       '<td style="text-align:right;color:#27ae60">'+(d.lc>0?fmtW(d.lc):'<span style="color:#ccc">-</span>')+'</td>'+
       '<td style="text-align:right;color:#e67e22">'+(d.mc>0?fmtW(d.mc):'<span style="color:#ccc">-</span>')+'</td>'+
       '<td style="text-align:right;color:#8e44ad">'+(d.rc>0?fmtW(d.rc):'<span style="color:#ccc">-</span>')+'</td>'+
+      _wsGrpBadgeTd(d,hsKey)+
       '<td style="text-align:right;font-weight:700">'+fmtW(d.tc)+'</td>'+
       '<td style="text-align:right;color:#80868b">'+(d.tcp>0?fmtW(d.tcp):'<span style="color:#ccc">-</span>')+'</td>'+
       '<td>'+gRow(growth(d.tc,d.tcp))+'</td>'+
