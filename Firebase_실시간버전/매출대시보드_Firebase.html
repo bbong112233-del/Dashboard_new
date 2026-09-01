@@ -6593,6 +6593,11 @@ window._sheetBulkSave=function(){
     });
   }catch(_e){}
   try{ if(window._drillType==='firmlist' && typeof _renderDrillTable==='function') _renderDrillTable(); }catch(_e2){}
+  // 품목 확대 기회 시트는 메모 버튼이 없어 표를 다시 그려야 📝가 갱신됨 (필터·정렬은 전역 상태라 유지)
+  try{
+    var _wsP=document.getElementById('panel-whitespace');
+    if(_wsP && _wsP.classList.contains('active') && typeof window.renderWsPanel==='function') window.renderWsPanel();
+  }catch(_e3){}
   var m=document.getElementById('bulk-memo-modal'); if(m)m.remove();
   if(typeof showTgtToast==='function') showTgtToast('일괄 메모 저장 완료 · 새 메모 '+added+' · 댓글 '+commented);
 };
@@ -6747,6 +6752,7 @@ window.renderWsPanel=function(){
     WS_GRPS.forEach(function(g){
       chips+='<span class="ws-chip'+(window._wsFilter===g.key?' sel':'')+'" onclick="wsSetFilter(\''+g.key+'\')">'+g.icon+' '+g.name+' 미취급 <b>'+counts[g.key]+'</b></span>';
     });
+    chips+='<button class="ws-csv" onclick="wsOpenBulkMemo()" style="background:#34a853;color:#fff;border-color:#34a853">🧩 일괄 메모</button>';
     chips+='<button class="ws-csv" onclick="wsExportCsv()">📤 CSV 내보내기</button>';
     fb.innerHTML=chips;
   }
@@ -6788,6 +6794,9 @@ window.renderWsPanel=function(){
     else {va=a.tc;vb=b.tc;}
     return st2.dir*(va-vb);
   });
+  // 일괄 메모가 참조할 "지금 화면에 보이는" 목록 (필터·정렬 반영, 표와 동일하게 상위 300개)
+  window._wsSorted=sorted.slice(0,300);
+  window._wsFilterGrp=fg;
 
   function th(key,lbl,align){
     var act=st2.key===key, ar=act?(st2.dir<0?' ▼':' ▲'):' ↕';
@@ -6847,6 +6856,22 @@ window.renderWsPanel=function(){
       });
     });
   }
+};
+
+// ── 품목 확대 기회 일괄 메모 (현재 필터·정렬로 보이는 목록 대상) ──
+window.wsOpenBulkMemo=function(){
+  var list=window._wsSorted||[];
+  var fg=window._wsFilterGrp;
+  var scope=fg?(fg.icon+' '+fg.name+' 미취급'):'전체';
+  window.openSheetBulkMemo(null,{
+    list:list,
+    label:'품목 확대 기회 · '+scope,
+    desc:'현재 필터(<b>'+scope+'</b>)·정렬로 보이는 회원사 '+list.length+'개입니다. 검색해서 고르거나 「보이는 항목 전체 선택」을 쓰세요.',
+    // 목록 메모 버튼·상세 팝업 제안 메모와 동일한 키 체계
+    keyFn:function(d){ return lsMgmtKey(d.firm,d.cos,d.ind); },
+    text:fg?('[품목 제안] '+fg.name+' — '):'',
+    emptyMsg:'현재 조건에 해당하는 회원사가 없습니다.'
+  });
 };
 
 // CSV 내보내기 (현재 필터·정렬 상태 그대로)
