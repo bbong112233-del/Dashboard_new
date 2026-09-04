@@ -756,6 +756,7 @@ tbody td{padding:8px 10px;color:#202124;vertical-align:middle}
       <div style="display:flex;align-items:center;gap:10px">
         <button id="drill-back-btn" onclick="drillGoBack()" style="display:none;align-items:center;gap:4px;background:#e8f0fe;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;color:#1a73e8;white-space:nowrap">← 뒤로</button>
         <div><h3 id="drill-title" style="font-size:15px;font-weight:700"></h3><div id="drill-sub" class="sub2"></div></div>
+        <button id="drill-hist-btn" onclick="drillHistFromBtn()" title="이 거래처에 쌓인 메모·댓글·제안을 시간순으로 봅니다" style="display:none;align-items:center;gap:4px;background:#fff;border:1px solid #dadce0;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;color:#5f6368;white-space:nowrap"></button>
       </div>
       <button onclick="closeDrill()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#5f6368">✕</button>
     </div>
@@ -901,7 +902,24 @@ function showMidDrill(catName,group,majorName){
   }
   _openDrillModal();
 }
-function _openDrillModal(){document.getElementById('drill-modal').style.display='flex';document.body.style.overflow='hidden';}
+function _openDrillModal(){
+  var _hb=document.getElementById('drill-hist-btn');
+  if(_hb){ _hb.style.display='none'; _hb.removeAttribute('data-firm'); }
+  document.getElementById('drill-modal').style.display='flex';document.body.style.overflow='hidden';}
+// 거래처 상세 화면에서만 '메모 이력' 버튼을 켠다 (_openDrillModal 뒤에 호출)
+function drillSetFirmHist(firm){
+  var b=document.getElementById('drill-hist-btn'); if(!b||!firm) return;
+  var n=(typeof _firmHistory==='function')?_firmHistory(firm).length:0;
+  if(!n){ b.style.display='none'; return; }
+  b.setAttribute('data-firm', firm);
+  b.textContent='\ud83d\uddc2 메모 이력 '+n;
+  b.style.display='inline-flex';
+}
+window.drillHistFromBtn=function(){
+  var b=document.getElementById('drill-hist-btn'); if(!b) return;
+  var f=b.getAttribute('data-firm');
+  if(f && typeof window.drillMemoPreview==='function') window.drillMemoPreview(f);
+};
 function closeDrill(){const m=document.getElementById('drill-modal');if(m.style.display==='none')return;m.style.display='none';document.body.style.overflow='';}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrill();});
 
@@ -2435,6 +2453,33 @@ function _fmSrcLabel(key,firm){
   if(key.indexOf('hs_')===0)return '고매출 관리';
   return '관리 시트';
 }
+// 한 거래처의 모든 기록을 시간순으로 모은다 (메모 3개 키 스킴 + 댓글 + 제안)
+//   본문은 덮어쓰기 구조라 키당 1건. 누적되는 것은 댓글과 제안이다.
+function _firmHistory(firm){
+  var M=window.LS_MGMT||{}, out=[];
+  Object.keys(M).forEach(function(key){
+    var v=M[key]; if(!v) return;
+    var f;
+    if(key.indexOf('region_')===0) f=key.slice(7);
+    else if(key.indexOf('hs_')===0) f=key.slice(3).split('|||')[0];
+    else f=key.split('|||')[0];
+    if(f!==firm) return;
+    var src=_fmSrcLabel(key, firm);
+    if(v.memo && String(v.memo).trim()){
+      out.push({t:'memo', date:v.memoDate||'', by:v.memoBy||'', text:String(v.memo), src:src, key:key});
+    }
+    (Array.isArray(v.comments)?v.comments:[]).forEach(function(c){
+      if(!c || c.deleted || !c.text) return;
+      out.push({t:'cmt', date:c.date||'', by:c.name||'', text:String(c.text), src:src, key:key});
+    });
+    (Array.isArray(v.actions)?v.actions:[]).forEach(function(a){
+      if(!a) return;
+      out.push({t:'act', date:a.stAt||a.date||'', by:a.by||'', grp:a.grp||'', st:a.st||'open', src:src, key:key});
+    });
+  });
+  out.sort(function(x,y){ return String(x.date)<String(y.date)?1:-1; });   // 최신순
+  return out;
+}
 // LS_MGMT 전체를 한 번만 훑어 거래처별 최신 메모 색인을 만든다
 function _firmMemoIndex(){
   var M=window.LS_MGMT||{};
@@ -2474,44 +2519,88 @@ function _firmMemoTd(firm,info){
     '</span></td>';
 }
 // 읽기 전용 미리보기 (본문 + 댓글) — 편집은 그 메모의 원래 키로 연다
+// 거래처 메모 이력 — 3개 키의 메모·댓글·제안을 시간순으로 한 화면에
 window.drillMemoPreview=function(firm){
-  var info=(_firmMemoIndex()||{})[firm];
-  if(!info){ if(typeof window.drillFirmMemo==='function')window.drillFirmMemo(firm); return; }
+  var items=(typeof _firmHistory==='function')?_firmHistory(firm):[];
+  if(!items.length){ if(typeof window.drillFirmMemo==='function')window.drillFirmMemo(firm); return; }
+  var best=(_firmMemoIndex()||{})[firm]||null;   // 편집 버튼이 열 키 (가장 최신 메모)
   var prev=document.getElementById('drill-memo-preview'); if(prev)prev.remove();
-  function _dt(x){ if(!x)return ''; try{ return new Date(x).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } }
-  var cmtHtml=info.cmt.map(function(c){
-    return '<div style="border-left:3px solid #e8eaed;padding:5px 0 5px 10px;margin-bottom:7px">'+
-      '<span style="font-size:11px;font-weight:800;color:#1a73e8">'+v3_esc(c.name||'익명')+'</span>'+
-      '<span style="font-size:10px;color:#9aa0a6;margin-left:5px">'+v3_esc(_dt(c.date))+'</span>'+
-      '<div style="font-size:12px;color:#3c4043;line-height:1.55;margin-top:2px;white-space:pre-wrap;word-break:break-word">'+v3_esc(c.text||'')+'</div></div>';
+
+  function _d(x){ if(!x)return ''; try{ return new Date(x).toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}); }catch(e){ return ''; } }
+  function _tm(x){ if(!x)return ''; try{ return new Date(x).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } }
+  function _srcBadge(s){ return '<span style="font-size:9.5px;font-weight:800;border-radius:4px;padding:1px 6px;background:#eef1f5;color:#5f6368;white-space:nowrap">'+v3_esc(s)+'</span>'; }
+
+  var nM=0,nC=0,nA=0;
+  items.forEach(function(it){ if(it.t==='memo')nM++; else if(it.t==='cmt')nC++; else nA++; });
+
+  // 날짜별 묶음 (최신순)
+  var groups=[], gmap={};
+  items.forEach(function(it){
+    var dk=_d(it.date)||'날짜없음';
+    if(!gmap[dk]){ gmap[dk]={d:dk, items:[]}; groups.push(gmap[dk]); }
+    gmap[dk].items.push(it);
+  });
+
+  var body=groups.map(function(g){
+    var rows=g.items.map(function(it){
+      var tm=_tm(it.date);
+      var who=v3_esc(it.by||'익명');
+      if(it.t==='memo'){
+        return '<div style="padding:9px 0 9px 12px;border-left:3px solid #1a73e8;background:#f8fbff;border-radius:0 6px 6px 0;margin-bottom:8px">'
+          +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+          +'<span style="font-size:11.5px;font-weight:800;color:#1a73e8">📝 '+who+'</span>'
+          +(tm?'<span style="font-size:10px;color:#9aa0a6">'+tm+'</span>':'')+_srcBadge(it.src)+'</div>'
+          +'<div style="font-size:12.5px;color:#202124;line-height:1.6;margin-top:3px;white-space:pre-wrap;word-break:break-word">'+v3_esc(it.text)+'</div></div>';
+      }
+      if(it.t==='cmt'){
+        return '<div style="padding:6px 0 6px 12px;border-left:3px solid #e8eaed;margin:0 0 7px 18px">'
+          +'<div style="display:flex;align-items:center;gap:6px">'
+          +'<span style="font-size:11px;font-weight:800;color:#5f6368">💬 '+who+'</span>'
+          +(tm?'<span style="font-size:10px;color:#9aa0a6">'+tm+'</span>':'')+'</div>'
+          +'<div style="font-size:12px;color:#3c4043;line-height:1.55;margin-top:2px;white-space:pre-wrap;word-break:break-word">'+v3_esc(it.text)+'</div></div>';
+      }
+      var s=(typeof ACT_ST!=='undefined'&&ACT_ST[it.st])?ACT_ST[it.st]:{t:it.st,bg:'#eef1f5',fg:'#5f6368',bd:'#dadce0'};
+      return '<div style="padding:6px 0 6px 12px;border-left:3px solid '+s.bd+';margin-bottom:8px;display:flex;align-items:center;gap:7px;flex-wrap:wrap">'
+        +'<span style="font-size:11.5px;font-weight:800;color:#5f6368">🎯 제안</span>'
+        +(it.grp?'<b style="font-size:11.5px;color:#202124">'+v3_esc(it.grp)+'</b>':'')
+        +'<span style="display:inline-flex;border:1px solid '+s.bd+';background:'+s.bg+';color:'+s.fg+';border-radius:6px;padding:2px 9px;font-size:10.5px;font-weight:800">'+v3_esc(s.t)+'</span>'
+        +(it.by?'<span style="font-size:10px;color:#9aa0a6">담당 '+v3_esc(it.by)+'</span>':'')
+        +(tm?'<span style="font-size:10px;color:#9aa0a6">'+tm+'</span>':'')+'</div>';
+    }).join('');
+    return '<div style="margin-bottom:6px"><div style="font-size:11px;font-weight:800;color:#3c4043;background:#f1f3f4;border-radius:5px;padding:4px 9px;margin-bottom:8px;display:inline-block">'+v3_esc(g.d)+'</div>'+rows+'</div>';
   }).join('');
+
   var m=document.createElement('div'); m.id='drill-memo-preview';
   m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10002;display:flex;align-items:center;justify-content:center;padding:20px';
-  m.innerHTML='<div style="background:#fff;border-radius:11px;width:440px;max-width:94vw;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.25);overflow:hidden">'+
-    '<div style="padding:11px 14px;border-bottom:1px solid #f1f3f4;display:flex;align-items:center;gap:8px">'+
-      '<span style="font-size:13px;font-weight:800">📝 '+v3_esc(firm)+'</span>'+
-      '<span style="font-size:9.5px;font-weight:800;border-radius:4px;padding:1px 6px;background:#e8f0fe;color:#1558d6">'+v3_esc(info.src)+'</span>'+
-      '<span id="dmp-x" style="margin-left:auto;color:#9aa0a6;font-size:15px;cursor:pointer">✕</span></div>'+
-    '<div style="padding:12px 14px;overflow:auto">'+
-      '<div style="font-size:12.5px;color:#202124;line-height:1.65;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;border-radius:8px;padding:10px 12px">'+v3_esc(info.memo)+'</div>'+
-      '<div style="font-size:10.5px;color:#9aa0a6;margin-top:6px">'+v3_esc(info.by||'익명')+(info.date?' · '+v3_esc(_dt(info.date)):'')+'</div>'+
-      (info.cmt.length?'<div style="font-size:11px;font-weight:800;color:#5f6368;margin:13px 0 6px">💬 댓글 '+info.cmt.length+'</div>'+cmtHtml
-                      :'<div style="font-size:11px;color:#bbb;margin-top:13px">댓글 없음</div>')+
+  m.innerHTML='<div style="background:#fff;border-radius:11px;width:520px;max-width:94vw;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.25);overflow:hidden">'+
+    '<div style="padding:11px 14px;border-bottom:1px solid #f1f3f4">'+
+      '<div style="display:flex;align-items:center;gap:8px">'+
+        '<span style="font-size:13.5px;font-weight:800">🗂 '+v3_esc(firm)+' 메모 이력</span>'+
+        '<span id="dmp-x" style="margin-left:auto;color:#9aa0a6;font-size:15px;cursor:pointer">✕</span></div>'+
+      '<div style="font-size:10.5px;color:#9aa0a6;margin-top:3px">메모 '+nM+' · 댓글 '+nC+' · 제안 '+nA+' — 관리 시트·고매출·지역별에 나뉘어 저장된 기록을 합쳐 최신순으로 보여줍니다</div>'+
     '</div>'+
+    '<div style="padding:12px 14px;overflow:auto">'+body+'</div>'+
     '<div style="padding:10px 14px;border-top:1px solid #f1f3f4;display:flex;gap:6px;justify-content:flex-end;background:#fcfcfd">'+
       '<button id="dmp-close" style="border:1px solid #dadce0;background:#fff;color:#5f6368;border-radius:6px;padding:6px 13px;font-size:11.5px;font-weight:700;cursor:pointer">닫기</button>'+
-      '<button id="dmp-edit" style="border:none;background:#1a73e8;color:#fff;border-radius:6px;padding:6px 13px;font-size:11.5px;font-weight:700;cursor:pointer">메모 편집</button>'+
+      (best?'<button id="dmp-edit" style="border:none;background:#1a73e8;color:#fff;border-radius:6px;padding:6px 13px;font-size:11.5px;font-weight:700;cursor:pointer">최신 메모 편집</button>':'')+
     '</div></div>';
   document.body.appendChild(m);
   function close(){ m.remove(); }
   document.getElementById('dmp-x').onclick=close;
   document.getElementById('dmp-close').onclick=close;
-  document.getElementById('dmp-edit').onclick=function(){
-    close();
-    if(typeof lsOpenMemo==='function') lsOpenMemo(info.key, firm);   // 읽은 메모와 같은 키를 편집
-  };
+  var _ed=document.getElementById('dmp-edit');
+  if(_ed) _ed.onclick=function(){ close(); if(typeof lsOpenMemo==='function') lsOpenMemo(best.key, firm); };
   m.addEventListener('click',function(e){ if(e.target===m)close(); });
 };
+window.firmHistoryOpen=window.drillMemoPreview;
+// 메모 관리 시트의 거래처명 클릭 → 이력 팝업 (행 클릭 핸들러보다 먼저 가로챈다)
+document.addEventListener('click',function(e){
+  if(!e.target.closest)return;
+  var el=e.target.closest('.firm-hist-link'); if(!el)return;
+  e.stopPropagation(); e.preventDefault();
+  var f=el.getAttribute('data-firm');
+  if(f && typeof window.drillMemoPreview==='function') window.drillMemoPreview(f);
+}, true);
 // 메모 셀 클릭 (캡처 단계 — 행 클릭 핸들러보다 먼저)
 document.addEventListener('click',function(e){
   if(!e.target.closest)return;
@@ -3466,6 +3555,7 @@ function showLowSalesDetail(firm, cos, ind){
   );
   document.getElementById('drill-tbody').innerHTML=rows.join('');
   _openDrillModal();
+  drillSetFirmHist(typeof firm!=='undefined'?firm:firmName);
 }
 
 // ══ 🌱 성장 가능 회원사 (올해 300만원 미만) — 저매출 관리와 동일 기능, 기준만 다름 ══
@@ -3832,6 +3922,7 @@ function showGrowthDetail(firm, cos, ind){
   );
   document.getElementById('drill-tbody').innerHTML=rows.join('');
   _openDrillModal();
+  drillSetFirmHist(typeof firm!=='undefined'?firm:firmName);
 }
 
 
@@ -4387,6 +4478,7 @@ function showHighSalesDetail(firm, cos, ind){
   );
   document.getElementById('drill-tbody').innerHTML=rows.join('');
   _openDrillModal();
+  drillSetFirmHist(typeof firm!=='undefined'?firm:firmName);
 }
 
 function showHsGrpProds(firm, cos, ind, grpKey){
@@ -5260,6 +5352,7 @@ function showRegionFirmDetail(firmName, cosName, opt){
     '</tr>');
   document.getElementById('drill-tbody').innerHTML=rows.join('');
   _openDrillModal();
+  drillSetFirmHist(typeof firm!=='undefined'?firm:firmName);
 }
 
 // ── 지역별 거래처 상품군 클릭 → 상품 목록 ──
@@ -5830,7 +5923,7 @@ window.renderMemoSheet = function(){
         + '<td style="white-space:nowrap;color:#5f6368;font-size:11px;padding:8px 6px">'+dateStr+'</td>'
         + '<td style="padding:8px 4px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+e.firm+'">'
         + (memoNew?'<span style="font-size:9px;font-weight:800;color:#d93025;border:1px solid #f5c6c2;border-radius:4px;padding:0 4px;margin-right:4px;vertical-align:middle">NEW</span>':'')
-        + '<b>'+e.firm+'</b></td>'
+        + '<b class="firm-hist-link" data-firm="'+esc(e.firm)+'" title="클릭: 이 거래처의 메모 이력" style="cursor:pointer;border-bottom:1px dotted #9aa0a6">'+e.firm+'</b></td>'
         + '<td style="text-align:center;font-size:11px;padding:8px 4px">'+e.cos+'</td>'
         + '<td style="text-align:center;font-size:11px;padding:8px 4px">'+e.ind+'</td>'
         + '<td style="text-align:center;padding:8px 4px">'+badge+'</td>'
