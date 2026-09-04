@@ -5725,14 +5725,14 @@ window.renderMemoSheet = function(){
     var cards=[
       {v:s.open+'건', l:'진행 중', s:(s.n?'등록 후 평균 '+s.avg+'일':'\u2014'),  c:'#1a73e8'},
       {v:s.won+'건',  l:'성사',    s:'제안이 발주로 이어짐',                       c:'#0f9d58'},
-      {v:s.lost+'건', l:'실패',    s:'미성사 \u00b7 취급 안 함 확인',              c:'#80868b'},
+      {v:s.lost+'건', l:'실패',    s:'미성사 또는 취급 안 함 확인',                 c:'#80868b'},
       {v:(s.rate!=null?s.rate+'%':'-'), l:'성사율', s:'성사 \u00f7 (성사+실패)',   c:'#f9ab00'}
     ];
     box.innerHTML=cards.map(function(k){
-      return '<div style="flex:1;background:#fff;border:1px solid #e8eaed;border-left:4px solid '+k.c+';border-radius:10px;padding:11px 14px">'
-        +'<div style="font-size:22px;font-weight:800;color:'+k.c+'">'+k.v+'</div>'
-        +'<div style="font-size:12px;font-weight:700;color:#202124;margin-top:2px">'+k.l+'</div>'
-        +'<div style="font-size:10px;color:#9aa0a6;margin-top:1px">'+k.s+'</div></div>';
+      return '<div style="flex:1;background:#fff;border:1px solid #e8eaed;border-left:4px solid '+k.c+';border-radius:10px;padding:10px 14px">'
+        +'<div style="font-size:22px;font-weight:800;line-height:1.15;color:'+k.c+'">'+k.v+'</div>'
+        +'<div style="font-size:11px;color:#9aa0a6;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+        +'<b style="color:#202124;font-weight:700">'+k.l+'</b> \u00b7 '+k.s+'</div></div>';
     }).join('');
   })();
 
