@@ -3030,13 +3030,56 @@ function actBadge(key){
     + ' style="display:inline-flex;align-items:center;border:1px solid '+s.bd+';background:'+s.bg+';color:'+s.fg
     + ';border-radius:6px;padding:3px 10px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">'+s.t+'</span>';
 }
-function actAdd(key, grp, by){
+function actAdd(key, grp, by, whenISO){
   var e = window.LS_MGMT[key]; if(!e) return;
   if(!Array.isArray(e.actions)) e.actions = [];
   var now = new Date().toISOString();
+  // 기존 메모를 제안으로 등록할 때는 메모 작성일을 제안 시작일로 쓴다 (없으면 오늘)
+  var d = (whenISO ? String(whenISO) : now).slice(0,10);
   e.actions.push({ id:'a_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-                   grp:grp||'', by:by||'', date:now.slice(0,10), st:'open', stAt:now });
+                   grp:grp||'', by:by||'', date:d, st:'open', stAt:now });
 }
+// 메모 키에서 담당 코스를 뽑는다 (region_ 키는 코스 정보가 없다)
+function _actByFromKey(key){
+  var k = String(key||'');
+  if(k.indexOf('region_')===0) return '';
+  if(k.indexOf('hs_')===0) k = k.slice(3);
+  var p = k.split('|||');
+  return p.length>1 ? p[1] : '';
+}
+// 기존 메모용 품목 선택 팝오버 — 고르면 그 자리에서 제안 등록
+window.actPickOpen=function(key, el){
+  var prev=document.getElementById('act-pick-pop'); if(prev)prev.remove();
+  var r=el.getBoundingClientRect();
+  var pop=document.createElement('div'); pop.id='act-pick-pop';
+  pop.style.cssText='position:fixed;z-index:10050;background:#fff;border:1px solid #dadce0;border-radius:9px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:10px 12px';
+  pop.style.top=Math.min(window.innerHeight-130, r.bottom+6)+'px';
+  pop.style.left=Math.max(8, Math.min(window.innerWidth-300, r.left-100))+'px';
+  pop.innerHTML='<div style="font-size:11px;font-weight:800;color:#202124;margin-bottom:7px">제안 품목 선택</div>'
+    +'<div style="display:flex;gap:5px">'+WS_GRPS.map(function(g){
+       return '<span class="act-pick-chip" data-grp="'+v3_esc(g.name)+'" style="border:1px solid #dadce0;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;color:#5f6368;cursor:pointer;white-space:nowrap">'+g.icon+' '+v3_esc(g.name)+'</span>';
+     }).join('')+'</div>'
+    +'<div style="font-size:10px;color:#9aa0a6;margin-top:7px">진행 중으로 등록되며, 등록일은 메모 작성일로 기록됩니다</div>';
+  document.body.appendChild(pop);
+  pop.addEventListener('click', function(ev){ ev.stopPropagation(); });
+  pop.querySelectorAll('.act-pick-chip').forEach(function(c){
+    c.onclick=function(){
+      var m=window.LS_MGMT[key];
+      if(m && typeof actAdd==='function'){
+        actAdd(key, c.getAttribute('data-grp'), _actByFromKey(key), m.memoDate);
+        if(typeof lsSave==='function') lsSave();
+      }
+      pop.remove();
+      if(typeof window.renderMemoSheet==='function') window.renderMemoSheet();
+    };
+  });
+  setTimeout(function(){
+    document.addEventListener('click', function _c(){
+      var p=document.getElementById('act-pick-pop'); if(p)p.remove();
+      document.removeEventListener('click', _c);
+    });
+  },0);
+};
 // 집계 (메모 관리 시트 상단 카드용)
 function actStats(){
   var r={open:0,won:0,lost:0,days:0,n:0}, now=Date.now();
@@ -3052,6 +3095,8 @@ function actStats(){
 // 배지 클릭 → 상태 순환 (어느 시트에서 눌러도 동작)
 document.addEventListener('click', function(e){
   if(!e.target.closest) return;
+  var pk = e.target.closest('.act-pick-link');
+  if(pk){ e.stopPropagation(); e.preventDefault(); window.actPickOpen(pk.getAttribute('data-actkey'), pk); return; }
   var b = e.target.closest('.act-badge'); if(!b) return;
   e.stopPropagation(); e.preventDefault();
   var a = actLast(b.getAttribute('data-actkey')); if(!a) return;
@@ -3105,7 +3150,18 @@ function lsOpenMemo(key, firmName, actOpt){
       + '<span style="display:block;font-size:11px;color:#5f6368;margin-top:2px">품목 <b>'+v3_esc(_ao.grp)+'</b>'
       + (_ao.by?' \u00b7 담당 <b>'+v3_esc(_ao.by)+'</b>':'')+' \u00b7 등록일 <b>'+new Date().toISOString().slice(0,10)+'</b> \u2014 모두 자동 입력</span></span>'
       + '<span style="border:1px solid #c6dafc;background:#e8f0fe;color:#1558d6;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:800;white-space:nowrap">진행 중</span></label>';
-  } else if(_actExist){
+  } else {
+    // 기존 메모 \u2014 품목을 고르면 제안으로 등록된다 (안 고르면 지금과 동일하게 동작)
+    _actRowHtml = '<div style="margin-top:11px;padding:10px 12px;background:#fafbfc;border:1px solid #e8eaed;border-radius:8px">'
+      + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+      + '<span style="font-size:12px;font-weight:800;color:#202124;margin-right:2px">제안으로 등록</span>'
+      + WS_GRPS.map(function(g){
+          return '<span class="ls-act-chip" data-grp="'+v3_esc(g.name)+'" style="border:1px solid #dadce0;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700;color:#5f6368;background:#fff;cursor:pointer;white-space:nowrap">'+g.icon+' '+v3_esc(g.name)+'</span>';
+        }).join('')
+      + '</div>'
+      + '<div style="font-size:10.5px;color:#9aa0a6;margin-top:6px">품목을 고르면 진행 중으로 등록됩니다. 안 고르면 일반 메모로 저장됩니다.</div></div>';
+  }
+  if(_actExist){
     _actRowHtml = '<div style="display:flex;align-items:center;gap:10px;margin-top:11px;padding:10px 12px;background:#f8f9fa;border:1px solid #e8eaed;border-radius:8px">'
       + '<span style="flex:1;font-size:11px;color:#5f6368">제안 등록됨 \u2014 품목 <b>'+v3_esc(_actExist.grp||'-')+'</b> \u00b7 '+(_actExist.date||'')+'</span>'
       + actBadge(key)+'</div>';
@@ -3126,22 +3182,44 @@ function lsOpenMemo(key, firmName, actOpt){
       '</div>'+
     '</div>';
   document.body.appendChild(modal);
+  let _pickGrp = '';
+  modal.querySelectorAll('.ls-act-chip').forEach(function(c){
+    c.onclick=function(){
+      const g=c.getAttribute('data-grp');
+      _pickGrp = (_pickGrp===g) ? '' : g;
+      modal.querySelectorAll('.ls-act-chip').forEach(function(x){
+        const on = x.getAttribute('data-grp')===_pickGrp;
+        x.style.background  = on ? '#1a73e8' : '#fff';
+        x.style.color       = on ? '#fff'    : '#5f6368';
+        x.style.borderColor = on ? '#1a73e8' : '#dadce0';
+      });
+    };
+  });
   const input = document.getElementById('ls-memo-input');
   input.focus(); input.setSelectionRange(input.value.length, input.value.length);
   function closeMemo(){ modal.remove(); }
   function saveMemo(){
+    // 저장하면 memoDate 가 오늘로 갱신되므로, 제안 등록일로 쓸 원래 작성일을 먼저 잡아둔다
+    const _prevMemoDate = (LS_MGMT[key]||{}).memoDate || '';
     if(!LS_MGMT[key]) LS_MGMT[key]={checked:false,memo:''};
     LS_MGMT[key].memo = input.value.trim();
     if(input.value.trim()){ LS_MGMT[key].memoDate=new Date().toISOString(); try{ LS_MGMT[key].memoBy=localStorage.getItem('memo_author_name')||''; }catch(e){} }
     const _chk = document.getElementById('ls-act-on');
-    const _added = !!(_chk && _chk.checked && input.value.trim() && typeof actAdd==='function');
-    if(_added) actAdd(key, _ao.grp, _ao.by);
+    const _hasText = !!input.value.trim();
+    const _autoOn = !!(_chk && _chk.checked && _hasText && typeof actAdd==='function');
+    const _pickOn = !!(!_autoOn && _pickGrp && _hasText && typeof actAdd==='function');
+    const _added = _autoOn || _pickOn;
+    if(_autoOn) actAdd(key, _ao.grp, _ao.by);
+    // 기존 메모를 제안으로 등록 \u2014 등록일은 메모 작성일 기준
+    else if(_pickOn) actAdd(key, _pickGrp, _actByFromKey(key), _prevMemoDate);
     lsSave();
     // 제안을 등록하면 품목 확대 기회 시트의 액션 칸이 배지로 바뀌므로 다시 그린다 (필터·정렬은 전역 상태라 유지)
     if(_added){
       try{
         const _wsP=document.getElementById('panel-whitespace');
         if(_wsP && _wsP.classList.contains('active') && typeof window.renderWsPanel==='function') window.renderWsPanel();
+        const _mP=document.getElementById('panel-memo');
+        if(_mP && _mP.classList.contains('active') && typeof window.renderMemoSheet==='function') window.renderMemoSheet();
       }catch(_e){}
     }
     const btn = document.querySelector('.ls-memo-btn[data-lskey="'+key+'"],.hs-memo-btn[data-lskey="'+key+'"]');
@@ -5927,7 +6005,8 @@ window.renderMemoSheet = function(){
         + '<td style="text-align:center;font-size:11px;padding:8px 4px">'+e.cos+'</td>'
         + '<td style="text-align:center;font-size:11px;padding:8px 4px">'+e.ind+'</td>'
         + '<td style="text-align:center;padding:8px 4px">'+badge+'</td>'
-        + '<td style="text-align:center;padding:8px 4px">'+(actLast(e.key)?actBadge(e.key):'<span style="color:#dadce0;font-size:11px">-</span>')+'</td>'
+        + '<td style="text-align:center;padding:8px 4px">'+(actLast(e.key)?actBadge(e.key)
+            :'<span class="act-pick-link" data-actkey="'+esc(e.key)+'" title="클릭: 품목을 골라 제안으로 등록" style="cursor:pointer;color:#aab2bd;font-size:10.5px;font-weight:700;border:1px dashed #dadce0;border-radius:5px;padding:2px 7px;white-space:nowrap">＋ 제안</span>')+'</td>'
         + '<td onclick="window.memoToggleComments('+ki+')" title="클릭하면 펼치기/접기" style="word-break:break-word;white-space:pre-wrap;line-height:1.6;padding:8px 6px;min-width:200px;cursor:pointer">'+(e.memoBy?'<b style="color:#1a73e8">'+esc(e.memoBy)+'</b> : ':'')+e.memo.replace(/\n/g,'<br>')+(e.edited?' <span style="opacity:.6;font-size:10px">(수정됨)</span>':'')+'</td>'
         + (function(){
             var newCnt = window.memoNewCmtCount(e.key, e.comments);
@@ -6783,13 +6862,15 @@ window.openZeroBulkMemo=function(){
   if(!ctx||!ctx.zero||!ctx.zero.length){ alert('현재 매출 0원인 거래처가 없습니다.'); return; }
   var list=ctx.zero.map(function(d){ return {firm:d.name,cos:'',ind:'',tc:d.cur||0,tcp:d.cmp||0}; });
   var title=ctx.prod+(ctx.spec?' · '+ctx.spec:'');
+  // 제품군을 문구에 함께 넣어 나중에 제안 품목을 알 수 있게 한다
+  var _gName=''; try{ WS_GRPS.forEach(function(g){ if(g.key===ctx.group) _gName=g.name; }); }catch(e){}
   window.openSheetBulkMemo(null,{
     list:list,
     label:'현재 매출 0원 · '+title,
     desc:'<b>'+title+'</b> 를 전년에는 구매했으나 <b>올해 매출이 0원</b>인 거래처 '+list.length+'개입니다. 전체 선택된 상태이며 필요 시 해제하세요.',
     keyFn:function(d){ return 'region_'+d.firm; },   // 이 팝업의 개별 메모와 동일한 키 체계
     preselectAll:true,
-    text:'[재구매 제안] '+title+' — '
+    text:'[재구매 제안] '+(_gName?_gName+' · ':'')+title+' — '
   });
 };
 window._sheetBulkSave=function(){
