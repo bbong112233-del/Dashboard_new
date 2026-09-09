@@ -2151,6 +2151,8 @@ function showProdFirms(prodName, group, specName){
   }
   window._drillData=firms;
     window._drillSort={key:'diff',dir:1};
+  // 메모 팝업이 품목을 자동으로 채울 수 있게, 이 목록이 어느 제품군에서 왔는지 남긴다
+  window._drillGrpHint=(function(){ var n=''; try{ WS_GRPS.forEach(function(g){ if(g.key===group) n=g.name; }); }catch(e){} return n; })();
   window._drillType='firmlist';
   _renderDrillTable();
   _openDrillModal();
@@ -3181,7 +3183,7 @@ function lsOpenMemo(key, firmName, actOpt){
     '<div style="background:#fff;border-radius:12px;padding:22px 24px;width:380px;max-width:92vw;box-shadow:0 8px 32px rgba(0,0,0,.22)">'+
       '<div style="font-size:14px;font-weight:700;color:#202124;margin-bottom:12px">📝 '+v3_esc(firmName)+' 메모</div>'+
       '<textarea id="ls-memo-input" style="width:100%;height:110px;border:1px solid #dadce0;border-radius:8px;padding:10px;font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;outline:none" placeholder="관리 내용을 입력하세요...">'+v3_esc(state.memo||'')+'</textarea>'+
-      '<div style="font-size:11px;color:#9aa0a6;margin-top:4px">Ctrl+Enter 로 저장</div>'+
+      '<div style="font-size:11px;color:#9aa0a6;margin-top:4px">'+v3_esc(_ao.hint||'Ctrl+Enter 로 저장')+'</div>'+
       _actRowHtml+
       '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">'+
         '<button id="ls-memo-del" style="margin-right:auto;padding:7px 14px;border:1px solid #fdd;border-radius:6px;background:#fff3f3;color:#d93025;cursor:pointer;font-size:12px">삭제</button>'+
@@ -3230,18 +3232,20 @@ function lsOpenMemo(key, firmName, actOpt){
         if(_mP && _mP.classList.contains('active') && typeof window.renderMemoSheet==='function') window.renderMemoSheet();
       }catch(_e){}
     }
-    const btn = document.querySelector('.ls-memo-btn[data-lskey="'+key+'"],.hs-memo-btn[data-lskey="'+key+'"]');
+    const btn = document.querySelector('.ls-memo-btn[data-lskey="'+key+'"],.hs-memo-btn[data-lskey="'+key+'"],.gs-memo-btn[data-gskey="'+key+'"]');
     if(btn){ const has=!!LS_MGMT[key].memo; btn.setAttribute('style',memoBtnSt(has)); btn.textContent=memoBtnIc(has); btn.title=has?'메모: '+LS_MGMT[key].memo:'메모 추가'; }
     closeMemo();
+    if(typeof _ao.onSaved==='function'){ try{ _ao.onSaved(); }catch(_s){} }
   }
   document.getElementById('ls-memo-save').onclick = saveMemo;
   document.getElementById('ls-memo-cancel').onclick = closeMemo;
   document.getElementById('ls-memo-del').onclick = function(){
     if(LS_MGMT[key]) LS_MGMT[key].memo='';
     lsSave();
-    const btn = document.querySelector('.ls-memo-btn[data-lskey="'+key+'"],.hs-memo-btn[data-lskey="'+key+'"]');
+    const btn = document.querySelector('.ls-memo-btn[data-lskey="'+key+'"],.hs-memo-btn[data-lskey="'+key+'"],.gs-memo-btn[data-gskey="'+key+'"]');
     if(btn){ btn.setAttribute('style',memoBtnSt(false)); btn.textContent=memoBtnIc(false); btn.title='메모 추가'; }
     closeMemo();
+    if(typeof _ao.onSaved==='function'){ try{ _ao.onSaved(); }catch(_s){} }
   };
   modal.addEventListener('click', function(e){ if(e.target===modal) closeMemo(); });
   input.addEventListener('keydown', function(e){ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)) saveMemo(); });
@@ -3726,47 +3730,8 @@ function gsToggleCheck(key){
   }
 }
 function gsOpenMemo(key, firmName){
-  const prev = document.getElementById('ls-memo-modal');
-  if(prev) prev.remove();
-  const state = LS_MGMT[key]||{};
-  const modal = document.createElement('div');
-  modal.id = 'ls-memo-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
-  modal.innerHTML =
-    '<div style="background:#fff;border-radius:12px;padding:22px 24px;width:380px;max-width:92vw;box-shadow:0 8px 32px rgba(0,0,0,.22)">'+
-      '<div style="font-size:14px;font-weight:700;color:#202124;margin-bottom:12px">📝 '+v3_esc(firmName)+' 메모</div>'+
-      '<textarea id="ls-memo-input" style="width:100%;height:110px;border:1px solid #dadce0;border-radius:8px;padding:10px;font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;outline:none" placeholder="관리 내용을 입력하세요...">'+v3_esc(state.memo||'')+'</textarea>'+
-      '<div style="font-size:11px;color:#9aa0a6;margin-top:4px">Ctrl+Enter 로 저장</div>'+
-      '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">'+
-        '<button id="ls-memo-del" style="margin-right:auto;padding:7px 14px;border:1px solid #fdd;border-radius:6px;background:#fff3f3;color:#d93025;cursor:pointer;font-size:12px">삭제</button>'+
-        '<button id="ls-memo-cancel" style="padding:7px 16px;border:1px solid #dadce0;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">취소</button>'+
-        '<button id="ls-memo-save" style="padding:7px 18px;border:none;border-radius:6px;background:#1a73e8;color:#fff;cursor:pointer;font-size:13px;font-weight:600">저장</button>'+
-      '</div>'+
-    '</div>';
-  document.body.appendChild(modal);
-  const input = document.getElementById('ls-memo-input');
-  input.focus(); input.setSelectionRange(input.value.length, input.value.length);
-  function closeMemo(){ modal.remove(); }
-  function saveMemo(){
-    if(!LS_MGMT[key]) LS_MGMT[key]={checked:false,memo:''};
-    LS_MGMT[key].memo = input.value.trim();
-    if(input.value.trim()){ LS_MGMT[key].memoDate=new Date().toISOString(); try{ LS_MGMT[key].memoBy=localStorage.getItem('memo_author_name')||''; }catch(e){} }
-    lsSave();
-    const btn = document.querySelector('.gs-memo-btn[data-gskey="'+key+'"],.hs-memo-btn[data-gskey="'+key+'"]');
-    if(btn){ const has=!!LS_MGMT[key].memo; btn.setAttribute('style',memoBtnSt(has)); btn.textContent=memoBtnIc(has); btn.title=has?'메모: '+LS_MGMT[key].memo:'메모 추가'; }
-    closeMemo();
-  }
-  document.getElementById('ls-memo-save').onclick = saveMemo;
-  document.getElementById('ls-memo-cancel').onclick = closeMemo;
-  document.getElementById('ls-memo-del').onclick = function(){
-    if(LS_MGMT[key]) LS_MGMT[key].memo='';
-    lsSave();
-    const btn = document.querySelector('.gs-memo-btn[data-gskey="'+key+'"],.hs-memo-btn[data-gskey="'+key+'"]');
-    if(btn){ btn.setAttribute('style',memoBtnSt(false)); btn.textContent=memoBtnIc(false); btn.title='메모 추가'; }
-    closeMemo();
-  };
-  modal.addEventListener('click', function(e){ if(e.target===modal) closeMemo(); });
-  input.addEventListener('keydown', function(e){ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)) saveMemo(); });
+  // 성장가능 시트 — 저매출 시트와 같은 키 체계라 메모 모달을 그대로 쓴다 (품목은 모르므로 칩으로 고른다)
+  lsOpenMemo(key, firmName, {});
 }
 function gsToggleHideDone(){
   window._gsHideDone = !window._gsHideDone;
@@ -4607,6 +4572,18 @@ function showHsGrpProds(firm, cos, ind, grpKey){
 }
 
 
+// 행 묶음이 어느 제품군인지 판별한다 (여러 군에 걸치면 빈 값 — 그때는 품목을 직접 고른다)
+function _grpOfRows(rows){
+  var hit=[];
+  try{
+    WS_GRPS.forEach(function(g){
+      var sum=0;
+      for(var i=0;i<rows.length;i++){ var r=rows[i]; if(!r) continue; sum+=(r[g.cur]||0)+(r[g.prv]||0); }
+      if(sum>0) hit.push(g.name);
+    });
+  }catch(e){ return ''; }
+  return hit.length===1 ? hit[0] : '';
+}
 // ── 인사이트 상품/카테고리 클릭 → 판매업체 팝업 ──
 function showInsProdFirms(prodName){
   const src=(GDATA.allRows||[]).filter(r=>r.prod===prodName);
@@ -4633,6 +4610,7 @@ function showInsProdFirms(prodName){
   window._drillData=firms;
   window._drillSort={key:'cur',dir:-1};
   window._drillFirmCtx=null;
+  window._drillGrpHint=_grpOfRows(src);
   window._drillType='firmlist';
   _renderDrillTable();
   _openDrillModal();
@@ -4663,6 +4641,7 @@ function showInsCatFirms(catName){
   window._drillData=firms;
   window._drillSort={key:'cur',dir:-1};
   window._drillFirmCtx=null;
+  window._drillGrpHint=_grpOfRows(src);
   window._drillType='firmlist';
   _renderDrillTable();
   _openDrillModal();
@@ -4958,67 +4937,21 @@ window.searchFirmMemo=function(firm, cos){
   // 이미 메모가 있으면 그 메모의 원래 키를 연다 (없을 때만 region_ 신규 생성)
   var _best=(typeof _firmMemoIndex==='function')?(_firmMemoIndex()||{})[firm]:null;
   var key=_best?_best.key:('region_'+firm);
-  var prev=document.getElementById('ls-memo-modal'); if(prev) prev.remove();
-  var state=(window.LS_MGMT&&window.LS_MGMT[key])||{};
-  var modal=document.createElement('div'); modal.id='ls-memo-modal';
-  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center';
-  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:22px 24px;width:380px;max-width:92vw;box-shadow:0 8px 32px rgba(0,0,0,.22)">'
-    +'<div style="font-size:14px;font-weight:700;color:#202124;margin-bottom:12px">📝 '+v3_esc(firm)+' 메모</div>'
-    +'<textarea id="ls-memo-input" style="width:100%;height:110px;border:1px solid #dadce0;border-radius:8px;padding:10px;font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;outline:none" placeholder="거래처 메모를 입력하세요...">'+v3_esc(state.memo||'')+'</textarea>'
-    +'<div style="font-size:11px;color:#9aa0a6;margin-top:4px">메모 관리 시트에 함께 표시·동기화됩니다 · Ctrl+Enter 저장</div>'
-    +'<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">'
-    +'<button id="ls-memo-del" style="margin-right:auto;padding:7px 14px;border:1px solid #fdd;border-radius:6px;background:#fff3f3;color:#d93025;cursor:pointer;font-size:12px">삭제</button>'
-    +'<button id="ls-memo-cancel" style="padding:7px 16px;border:1px solid #dadce0;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">취소</button>'
-    +'<button id="ls-memo-save" style="padding:7px 18px;border:none;border-radius:6px;background:#1a73e8;color:#fff;cursor:pointer;font-size:13px;font-weight:600">저장</button>'
-    +'</div></div>';
-  document.body.appendChild(modal);
-  var input=document.getElementById('ls-memo-input'); input.focus(); input.setSelectionRange(input.value.length,input.value.length);
-  function close(){ modal.remove(); }
-  function save(){
-    if(!window.LS_MGMT[key]) window.LS_MGMT[key]={checked:false,memo:''};
-    window.LS_MGMT[key].memo=input.value.trim();
-    if(input.value.trim()){ window.LS_MGMT[key].memoDate=new Date().toISOString(); try{ window.LS_MGMT[key].memoBy=localStorage.getItem('memo_author_name')||''; }catch(e){} }
-    lsSave(); close(); searchFirmDetail(firm, cos);
-  }
-  document.getElementById('ls-memo-save').onclick=save;
-  document.getElementById('ls-memo-cancel').onclick=close;
-  document.getElementById('ls-memo-del').onclick=function(){ if(window.LS_MGMT[key]) window.LS_MGMT[key].memo=''; lsSave(); close(); searchFirmDetail(firm, cos); };
-  modal.addEventListener('click',function(e){ if(e.target===modal) close(); });
-  input.addEventListener('keydown',function(e){ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)) save(); });
+  // 검색 결과는 품목 정보가 없으므로 칩으로 고르게 한다
+  lsOpenMemo(key, firm, {hint:'거래처 메모(검색·지역별·메모 시트와 연동) · Ctrl+Enter 저장'});
 };
 
 window.drillFirmMemo=function(firm){
   // 이미 메모가 있으면 그 메모의 원래 키를 연다 (없을 때만 region_ 신규 생성)
   var _best=(typeof _firmMemoIndex==='function')?(_firmMemoIndex()||{})[firm]:null;
   var key=_best?_best.key:('region_'+firm);
-  var prev=document.getElementById('ls-memo-modal'); if(prev) prev.remove();
-  var state=(window.LS_MGMT&&window.LS_MGMT[key])||{};
-  var modal=document.createElement('div'); modal.id='ls-memo-modal';
-  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center';
-  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:22px 24px;width:380px;max-width:92vw;box-shadow:0 8px 32px rgba(0,0,0,.22)">'
-    +'<div style="font-size:14px;font-weight:700;color:#202124;margin-bottom:12px">\ud83d\udcdd '+v3_esc(firm)+' \uba54\ubaa8</div>'
-    +'<textarea id="ls-memo-input" style="width:100%;height:110px;border:1px solid #dadce0;border-radius:8px;padding:10px;font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;outline:none" placeholder="\uac70\ub798\ucc98 \uba54\ubaa8\ub97c \uc785\ub825\ud558\uc138\uc694...">'+v3_esc(state.memo||'')+'</textarea>'
-    +'<div style="font-size:11px;color:#9aa0a6;margin-top:4px">\uba54\ubaa8 \uad00\ub9ac \uc2dc\ud2b8\uc5d0 \ud568\uaed8 \ud45c\uc2dc\u00b7\ub3d9\uae30\ud654\ub429\ub2c8\ub2e4 \u00b7 Ctrl+Enter \uc800\uc7a5</div>'
-    +'<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">'
-    +'<button id="ls-memo-del" style="margin-right:auto;padding:7px 14px;border:1px solid #fdd;border-radius:6px;background:#fff3f3;color:#d93025;cursor:pointer;font-size:12px">\uc0ad\uc81c</button>'
-    +'<button id="ls-memo-cancel" style="padding:7px 16px;border:1px solid #dadce0;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">\ucde8\uc18c</button>'
-    +'<button id="ls-memo-save" style="padding:7px 18px;border:none;border-radius:6px;background:#1a73e8;color:#fff;cursor:pointer;font-size:13px;font-weight:600">\uc800\uc7a5</button>'
-    +'</div></div>';
-  document.body.appendChild(modal);
-  var input=document.getElementById('ls-memo-input'); input.focus(); input.setSelectionRange(input.value.length,input.value.length);
-  function close(){ modal.remove(); }
-  function _refresh(){ if(typeof _renderDrillTable==='function'){ try{ _renderDrillTable(); }catch(_g){} } }
-  function save(){
-    if(!window.LS_MGMT[key]) window.LS_MGMT[key]={checked:false,memo:''};
-    window.LS_MGMT[key].memo=input.value.trim();
-    if(input.value.trim()){ window.LS_MGMT[key].memoDate=new Date().toISOString(); try{ window.LS_MGMT[key].memoBy=localStorage.getItem('memo_author_name')||''; }catch(e){} }
-    lsSave(); close(); _refresh();
-  }
-  document.getElementById('ls-memo-save').onclick=save;
-  document.getElementById('ls-memo-cancel').onclick=close;
-  document.getElementById('ls-memo-del').onclick=function(){ if(window.LS_MGMT[key]) window.LS_MGMT[key].memo=''; lsSave(); close(); _refresh(); };
-  modal.addEventListener('click',function(e){ if(e.target===modal) close(); });
-  input.addEventListener('keydown',function(e){ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)) save(); });
+  // 이 팝업이 특정 제품군에서 내려온 목록이면 품목을 자동으로 채운다
+  var _g=window._drillGrpHint||'';
+  lsOpenMemo(key, firm, {
+    grp:_g, by:(typeof _actByFromKey==='function'?_actByFromKey(key):''),
+    hint:'메모 관리 시트에 함께 표시·동기화됩니다 · Ctrl+Enter 저장',
+    onSaved:function(){ if(typeof _renderDrillTable==='function'){ try{ _renderDrillTable(); }catch(_g2){} } }
+  });
 };
 
 document.addEventListener('click', function(e){
@@ -5484,29 +5417,13 @@ window.regFirmMemo=function(firm, cos, grpKey){
   // 이미 메모가 있으면 그 메모의 원래 키를 연다 (없을 때만 region_ 신규 생성)
   var _best=(typeof _firmMemoIndex==='function')?(_firmMemoIndex()||{})[firm]:null;
   var key=_best?_best.key:('region_'+firm);
-  var prev=document.getElementById('ls-memo-modal'); if(prev) prev.remove();
-  var state=(window.LS_MGMT&&window.LS_MGMT[key])||{};
-  var modal=document.createElement('div'); modal.id='ls-memo-modal';
-  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center';
-  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:22px 24px;width:380px;max-width:92vw;box-shadow:0 8px 32px rgba(0,0,0,.22)">'
-    +'<div style="font-size:14px;font-weight:700;color:#202124;margin-bottom:12px">📝 '+v3_esc(firm)+' 메모</div>'
-    +'<textarea id="ls-memo-input" style="width:100%;height:110px;border:1px solid #dadce0;border-radius:8px;padding:10px;font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;outline:none" placeholder="거래처 메모를 입력하세요...">'+v3_esc(state.memo||'')+'</textarea>'
-    +'<div style="font-size:11px;color:#9aa0a6;margin-top:4px">거래처 메모(검색·지역별·메모 시트와 연동) · Ctrl+Enter 저장</div>'
-    +'<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">'
-    +'<button id="ls-memo-del" style="margin-right:auto;padding:7px 14px;border:1px solid #fdd;border-radius:6px;background:#fff3f3;color:#d93025;cursor:pointer;font-size:12px">삭제</button>'
-    +'<button id="ls-memo-cancel" style="padding:7px 16px;border:1px solid #dadce0;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">취소</button>'
-    +'<button id="ls-memo-save" style="padding:7px 18px;border:none;border-radius:6px;background:#1a73e8;color:#fff;cursor:pointer;font-size:13px;font-weight:600">저장</button>'
-    +'</div></div>';
-  document.body.appendChild(modal);
-  var input=document.getElementById('ls-memo-input'); input.focus(); input.setSelectionRange(input.value.length,input.value.length);
-  function close(){ modal.remove(); }
-  function refresh(){ try{ showRegFirmGrpProds(firm, cos, grpKey); }catch(e){} }
-  function save(){ if(!window.LS_MGMT[key]) window.LS_MGMT[key]={checked:false,memo:''}; window.LS_MGMT[key].memo=input.value.trim(); if(input.value.trim()){ window.LS_MGMT[key].memoDate=new Date().toISOString(); try{ window.LS_MGMT[key].memoBy=localStorage.getItem('memo_author_name')||''; }catch(e){} } lsSave(); close(); refresh(); }
-  document.getElementById('ls-memo-save').onclick=save;
-  document.getElementById('ls-memo-cancel').onclick=close;
-  document.getElementById('ls-memo-del').onclick=function(){ if(window.LS_MGMT[key]) window.LS_MGMT[key].memo=''; lsSave(); close(); refresh(); };
-  modal.addEventListener('click',function(e){ if(e.target===modal) close(); });
-  input.addEventListener('keydown',function(e){ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)) save(); });
+  // 이 팝업은 제품군을 알고 내려왔으므로 품목을 자동으로 채운다
+  var _gName=''; try{ WS_GRPS.forEach(function(g){ if(g.key===grpKey) _gName=g.name; }); }catch(e){}
+  lsOpenMemo(key, firm, {
+    grp:_gName, by:cos||(typeof _actByFromKey==='function'?_actByFromKey(key):''),
+    hint:'거래처 메모(검색·지역별·메모 시트와 연동) · Ctrl+Enter 저장',
+    onSaved:function(){ try{ showRegFirmGrpProds(firm, cos, grpKey); }catch(e){} }
+  });
 };
 document.addEventListener('click', function(e){
   if(!e.target.closest) return;
