@@ -3039,10 +3039,18 @@ function actAdd(key, grp, by, whenISO){
   e.actions.push({ id:'a_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
                    grp:grp||'', by:by||'', date:d, st:'open', stAt:now });
 }
-// 메모 키에서 담당 코스를 뽑는다 (region_ 키는 코스 정보가 없다)
+// 메모 키에서 담당 코스를 뽑는다
+//   region_ 키는 키 안에 코스가 없어 거래처명으로 데이터에서 찾는다.
+//   코스 메모(region_코스명)는 거래처가 아니므로 담당이 없다 → 빈 값.
 function _actByFromKey(key){
   var k = String(key||'');
-  if(k.indexOf('region_')===0) return '';
+  if(k.indexOf('region_')===0){
+    var f = k.slice(7);
+    var rows = (window._allRows && window._allRows.length) ? window._allRows
+             : ((typeof GDATA!=='undefined' && GDATA.allRows) ? GDATA.allRows : []);
+    for(var i=0;i<rows.length;i++){ if(rows[i] && rows[i].firm===f) return rows[i].cos||''; }
+    return '';
+  }
   if(k.indexOf('hs_')===0) k = k.slice(3);
   var p = k.split('|||');
   return p.length>1 ? p[1] : '';
@@ -4947,7 +4955,9 @@ function searchProdFirms(prod){
 
 // ── 클릭 위임 (검색 결과 행) ──
 window.searchFirmMemo=function(firm, cos){
-  var key='region_'+firm;
+  // 이미 메모가 있으면 그 메모의 원래 키를 연다 (없을 때만 region_ 신규 생성)
+  var _best=(typeof _firmMemoIndex==='function')?(_firmMemoIndex()||{})[firm]:null;
+  var key=_best?_best.key:('region_'+firm);
   var prev=document.getElementById('ls-memo-modal'); if(prev) prev.remove();
   var state=(window.LS_MGMT&&window.LS_MGMT[key])||{};
   var modal=document.createElement('div'); modal.id='ls-memo-modal';
@@ -5471,7 +5481,9 @@ function showRegFirmGrpProds(firm, cos, grpKey){
 }
 
 window.regFirmMemo=function(firm, cos, grpKey){
-  var key='region_'+firm;
+  // 이미 메모가 있으면 그 메모의 원래 키를 연다 (없을 때만 region_ 신규 생성)
+  var _best=(typeof _firmMemoIndex==='function')?(_firmMemoIndex()||{})[firm]:null;
+  var key=_best?_best.key:('region_'+firm);
   var prev=document.getElementById('ls-memo-modal'); if(prev) prev.remove();
   var state=(window.LS_MGMT&&window.LS_MGMT[key])||{};
   var modal=document.createElement('div'); modal.id='ls-memo-modal';
@@ -6006,7 +6018,8 @@ window.renderMemoSheet = function(){
         + '<td style="text-align:center;font-size:11px;padding:8px 4px">'+e.ind+'</td>'
         + '<td style="text-align:center;padding:8px 4px">'+badge+'</td>'
         + '<td style="text-align:center;padding:8px 4px">'+(actLast(e.key)?actBadge(e.key)
-            :'<span class="act-pick-link" data-actkey="'+esc(e.key)+'" title="클릭: 품목을 골라 제안으로 등록" style="cursor:pointer;color:#aab2bd;font-size:10.5px;font-weight:700;border:1px dashed #dadce0;border-radius:5px;padding:2px 7px;white-space:nowrap">＋ 제안</span>')+'</td>'
+            :(e.isRegion?'<span style="color:#dadce0;font-size:11px">-</span>'   // 코스 메모는 거래처가 아니라 제안 대상이 아니다
+            :'<span class="act-pick-link" data-actkey="'+esc(e.key)+'" title="클릭: 품목을 골라 제안으로 등록" style="cursor:pointer;color:#aab2bd;font-size:10.5px;font-weight:700;border:1px dashed #dadce0;border-radius:5px;padding:2px 7px;white-space:nowrap">＋ 제안</span>'))+'</td>'
         + '<td onclick="window.memoToggleComments('+ki+')" title="클릭하면 펼치기/접기" style="word-break:break-word;white-space:pre-wrap;line-height:1.6;padding:8px 6px;min-width:200px;cursor:pointer">'+(e.memoBy?'<b style="color:#1a73e8">'+esc(e.memoBy)+'</b> : ':'')+e.memo.replace(/\n/g,'<br>')+(e.edited?' <span style="opacity:.6;font-size:10px">(수정됨)</span>':'')+'</td>'
         + (function(){
             var newCnt = window.memoNewCmtCount(e.key, e.comments);
