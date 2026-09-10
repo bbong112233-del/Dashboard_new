@@ -3068,15 +3068,14 @@ function actBadges(key, compact){
     + a.map(function(x){ return actBadge(key,x,compact); }).join('') + '</span>';
 }
 // 같은 품목을 두 번 등록하지 않는다
-function actAdd(key, grp, by, whenISO){
+function actAdd(key, grp, by){
   var e = window.LS_MGMT[key]; if(!e) return false;
   if(!Array.isArray(e.actions)) e.actions = [];
   if(grp && actHasGrp(key, grp)) return false;
+  // 제안 등록일은 등록하는 날이다. 메모를 언제 썼는지와는 무관하다.
   var now = new Date().toISOString();
-  // 기존 메모를 제안으로 등록할 때는 메모 작성일을 제안 시작일로 쓴다 (없으면 오늘)
-  var d = (whenISO ? String(whenISO) : now).slice(0,10);
   e.actions.push({ id:'a_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-                   grp:grp||'', by:by||'', date:d, st:'open', stAt:now });
+                   grp:grp||'', by:by||'', date:now.slice(0,10), st:'open', stAt:now });
   return true;
 }
 // 메모 키에서 담당 코스를 뽑는다
@@ -3109,14 +3108,14 @@ window.actPickOpen=function(key, el){
     +'<div style="display:flex;gap:5px">'+_rem.map(function(g){
        return '<span class="act-pick-chip" data-grp="'+v3_esc(g.name)+'" style="border:1px solid #dadce0;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;color:#5f6368;cursor:pointer;white-space:nowrap">'+g.icon+' '+v3_esc(g.name)+'</span>';
      }).join('')+'</div>'
-    +'<div style="font-size:10px;color:#9aa0a6;margin-top:7px">진행 중으로 등록되며, 등록일은 메모 작성일로 기록됩니다</div>';
+    +'<div style="font-size:10px;color:#9aa0a6;margin-top:7px">진행 중으로 등록되며, 등록일은 오늘 날짜입니다</div>';
   document.body.appendChild(pop);
   pop.addEventListener('click', function(ev){ ev.stopPropagation(); });
   pop.querySelectorAll('.act-pick-chip').forEach(function(c){
     c.onclick=function(){
       var m=window.LS_MGMT[key];
       if(m && typeof actAdd==='function'){
-        actAdd(key, c.getAttribute('data-grp'), _actByFromKey(key), m.memoDate);
+        actAdd(key, c.getAttribute('data-grp'), _actByFromKey(key));
         if(typeof lsSave==='function') lsSave();
       }
       pop.remove();
@@ -3259,19 +3258,20 @@ function lsOpenMemo(key, firmName, actOpt){
   input.focus(); input.setSelectionRange(input.value.length, input.value.length);
   function closeMemo(){ modal.remove(); }
   function saveMemo(){
-    // 저장하면 memoDate 가 오늘로 갱신되므로, 제안 등록일로 쓸 원래 작성일을 먼저 잡아둔다
-    const _prevMemoDate = (LS_MGMT[key]||{}).memoDate || '';
+    // 본문이 그대로면 작성일도 그대로 둔다 (제안만 달거나 열었다 닫아도 메모 날짜가 튀면 안 된다)
+    const _wasMemo = (LS_MGMT[key]||{}).memo || '';
+    const _newMemo = input.value.trim();
+    const _memoChanged = _newMemo !== _wasMemo || !(LS_MGMT[key]||{}).memoDate;
     if(!LS_MGMT[key]) LS_MGMT[key]={checked:false,memo:''};
-    LS_MGMT[key].memo = input.value.trim();
-    if(input.value.trim()){ LS_MGMT[key].memoDate=new Date().toISOString(); try{ LS_MGMT[key].memoBy=localStorage.getItem('memo_author_name')||''; }catch(e){} }
+    LS_MGMT[key].memo = _newMemo;
+    if(_newMemo && _memoChanged){ LS_MGMT[key].memoDate=new Date().toISOString(); try{ LS_MGMT[key].memoBy=localStorage.getItem('memo_author_name')||''; }catch(e){} }
     const _chk = document.getElementById('ls-act-on');
     const _hasText = !!input.value.trim();
     const _autoOn = !!(_chk && _chk.checked && _hasText && typeof actAdd==='function');
     const _pickOn = !!(!_autoOn && _pickGrp && _hasText && typeof actAdd==='function');
     const _added = _autoOn || _pickOn;
     if(_autoOn) actAdd(key, _ao.grp, _ao.by);
-    // 기존 메모를 제안으로 등록 \u2014 등록일은 메모 작성일 기준
-    else if(_pickOn) actAdd(key, _pickGrp, _actByFromKey(key), _prevMemoDate);
+    else if(_pickOn) actAdd(key, _pickGrp, _actByFromKey(key));
     lsSave();
     // 제안을 등록하면 품목 확대 기회 시트의 액션 칸이 배지로 바뀌므로 다시 그린다 (필터·정렬은 전역 상태라 유지)
     if(_added){
@@ -4261,9 +4261,13 @@ function regionOpenMemo(key, cosName){
   input.focus(); input.setSelectionRange(input.value.length, input.value.length);
   function closeMemo(){ modal.remove(); }
   function saveMemo(){
+    // 본문이 그대로면 작성일도 그대로 둔다
+    const _wasMemo = (LS_MGMT[key]||{}).memo || '';
+    const _newMemo = input.value.trim();
+    const _memoChanged = _newMemo !== _wasMemo || !(LS_MGMT[key]||{}).memoDate;
     if(!LS_MGMT[key]) LS_MGMT[key]={checked:false,memo:''};
-    LS_MGMT[key].memo = input.value.trim();
-    if(input.value.trim()){ LS_MGMT[key].memoDate=new Date().toISOString(); try{ LS_MGMT[key].memoBy=localStorage.getItem('memo_author_name')||''; }catch(e){} }
+    LS_MGMT[key].memo = _newMemo;
+    if(_newMemo && _memoChanged){ LS_MGMT[key].memoDate=new Date().toISOString(); try{ LS_MGMT[key].memoBy=localStorage.getItem('memo_author_name')||''; }catch(e){} }
     lsSave();
     const btn = document.querySelector('.region-memo-btn[data-regkey="'+key.replace(/"/g,'&quot;').replace(/'/g,'&#39;')+'"]');
     if(btn){
@@ -5334,7 +5338,14 @@ window.cosMemoOpen=function(cos){
   var input=document.getElementById('ls-memo-input'); input.focus(); input.setSelectionRange(input.value.length,input.value.length);
   function close(){ modal.remove(); }
   function refresh(){ if(typeof window._lastCosDetail==='function') window._lastCosDetail(); }
-  function save(){ if(!window.LS_MGMT[key]) window.LS_MGMT[key]={checked:false,memo:''}; window.LS_MGMT[key].memo=input.value.trim(); if(input.value.trim()){ window.LS_MGMT[key].memoDate=new Date().toISOString(); try{ window.LS_MGMT[key].memoBy=localStorage.getItem('memo_author_name')||''; }catch(e){} } lsSave(); close(); refresh(); }
+  function save(){
+    // 본문이 그대로면 작성일도 그대로 둔다
+    var _was=(window.LS_MGMT[key]||{}).memo||'', _new=input.value.trim();
+    var _chg=(_new!==_was)||!(window.LS_MGMT[key]||{}).memoDate;
+    if(!window.LS_MGMT[key]) window.LS_MGMT[key]={checked:false,memo:''};
+    window.LS_MGMT[key].memo=_new;
+    if(_new&&_chg){ window.LS_MGMT[key].memoDate=new Date().toISOString(); try{ window.LS_MGMT[key].memoBy=localStorage.getItem('memo_author_name')||''; }catch(e){} }
+    lsSave(); close(); refresh(); }
   document.getElementById('ls-memo-save').onclick=save;
   document.getElementById('ls-memo-cancel').onclick=close;
   document.getElementById('ls-memo-del').onclick=function(){ if(window.LS_MGMT[key]) window.LS_MGMT[key].memo=''; lsSave(); close(); refresh(); };
