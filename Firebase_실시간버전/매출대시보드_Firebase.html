@@ -647,20 +647,21 @@ tbody td{padding:8px 10px;color:#202124;vertical-align:middle}
           <div id="notice-list"></div>
         </div>
         <h3>📝 메모 관리 <span id="memo-sheet-count" style="font-size:11px;color:#9aa0a6;font-weight:400"></span></h3>
-        <div class="sub2" style="margin-bottom:12px">저매출·고매출·지역별 시트에서 저장한 메모 목록 · 날짜별 그룹 · 최신순 정렬</div>
+        <div id="memo-sheet-sub" class="sub2" style="margin-bottom:12px">저매출·고매출·지역별 시트에서 저장한 메모 목록 · 날짜별 그룹 · 최신순 정렬</div>
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
           <input id="memo-search" type="text" placeholder="거래처명 또는 메모 내용 검색..." style="flex:1;min-width:180px;padding:7px 12px;border:1px solid #dadce0;border-radius:8px;font-size:13px;outline:none">
           <button onclick="window.openBulkMemo()" title="여러 코스·거래처에 같은 메모를 한 번에 저장" style="padding:7px 14px;background:#34a853;border:none;border-radius:8px;font-size:12px;font-weight:700;color:#fff;cursor:pointer">🧷 일괄 메모</button>
           <button onclick="window.memoSyncRefresh()" title="팀 저장소의 최신 메모를 받아와 화면을 갱신합니다" style="padding:7px 14px;background:#e8f0fe;border:none;border-radius:8px;font-size:12px;font-weight:700;color:#1a73e8;cursor:pointer">☁️ 동기화</button>
           <button onclick="window.memoMarkAllSeen()" title="모든 메모·댓글의 NEW(읽지 않음) 표시를 읽음 처리합니다" style="padding:7px 14px;background:#fff;border:1px solid #dadce0;border-radius:8px;font-size:12px;font-weight:700;color:#5f6368;cursor:pointer">✅ 전체 읽음</button>
-          <button onclick="window.memoToggleAllDates()" style="padding:7px 14px;background:#fff;border:1px solid #dadce0;border-radius:8px;font-size:12px;font-weight:700;color:#5f6368;cursor:pointer">📅 전체 펼치기/접기</button>
+          <button onclick="window.memoToggleAllDates()" id="memo-expand-btn" style="padding:7px 14px;background:#fff;border:1px solid #dadce0;border-radius:8px;font-size:12px;font-weight:700;color:#5f6368;cursor:pointer">📅 전체 펼치기/접기</button>
           <button onclick="window.memoTogglePast()" id="memo-past-btn" title="1달 지난 메모를 주간 단위로 모아 봅니다 (3달 지난 메모·공지는 삭제하지 않고 보관함에 접어둡니다)" style="padding:7px 14px;background:#fff;border:1px solid #dadce0;border-radius:8px;font-size:12px;font-weight:700;color:#5f6368;cursor:pointer">🗂️ 지난 메모</button>
           <button onclick="window.memoChangeAuthorName()" title="공지·댓글에 표시되는 내 이름을 변경합니다" style="padding:7px 14px;background:#fff;border:1px solid #dadce0;border-radius:8px;font-size:12px;font-weight:700;color:#5f6368;cursor:pointer">🙍 내 이름 변경</button>
         </div>
+        <div id="memo-view-tabs" style="display:none;gap:6px;margin:4px 0 0"></div>
         <div id="memo-act-stats" style="display:none;gap:10px;margin:10px 0 14px"></div>
         <div class="ls-hs-scroll-wrap">
           <table style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead><tr>
+            <thead><tr id="memo-sheet-thead-row">
               <th style="width:130px">날짜</th>
               <th style="width:150px">거래처명</th>
               <th style="width:70px">코스</th>
@@ -3116,6 +3117,8 @@ document.addEventListener('click', function(e){
   var s = ACT_ST[a.st] || ACT_ST.open;
   b.textContent = s.t;
   b.style.background = s.bg; b.style.color = s.fg; b.style.borderColor = s.bd;
+  // 제안 뷰에서는 다시 정렬하면 누르던 줄이 튀어 이어 누를 수 없다 → 이번 갱신만 순서를 고정
+  if(window._memoView==='act') window._actFreeze=true;
   if(document.getElementById('memo-act-stats') && typeof window.renderMemoSheet==='function') window.renderMemoSheet();
 }, true);
 
@@ -5656,10 +5659,220 @@ function dashRerender(){
 
 <script>
 // ══ 메모 관리 시트 ══
+// ══ 제안 현황 뷰 ══
+//   제안은 '날짜'가 아니라 '상태 × 경과일' 축으로 봐야 해서, 메모 시트와 같은 자리에
+//   표만 갈아끼우는 방식으로 둔다. 탭을 늘리지 않고 코스·업종군·검색 필터를 그대로 쓴다.
+window._memoView = window._memoView || 'memo';      // 'memo' | 'act'
+window._memoActFilter = window._memoActFilter || ''; // '' | 'open' | 'won' | 'lost'
+
+// 제안 한 건의 거래처·코스·업종군을 키에서 풀어낸다 (메모 시트와 같은 판별)
+function _actRowMeta(key){
+  var info=_memoFirmInfo(), fi=info.firm, cs=info.cos;
+  var k=String(key||'');
+  if(k.indexOf('region_')===0){
+    var f=k.slice(7), d=fi[f];
+    if(d) return {firm:f, cos:d.cos||'', ind:d.ind||'', isCos:false};
+    return {firm:f, cos:'', ind:'', isCos:!!cs[f]};
+  }
+  if(k.indexOf('hs_')===0) k=k.slice(3);
+  var p=k.split('|||');
+  return {firm:p[0]||'', cos:p[1]||'', ind:p[2]||'', isCos:false};
+}
+
+// 화면에 보여줄 제안 목록 (한 키에 제안은 1건 — actLast 가 곧 그 건이다)
+function _actRows(){
+  var M=window.LS_MGMT||{}, out=[], now=Date.now();
+  Object.keys(M).forEach(function(key){
+    var a=actLast(key); if(!a) return;
+    var m=_actRowMeta(key);
+    if(m.isCos) return;                       // 코스 메모는 거래처 단위가 아니라 제외
+    var startMs=a.date?new Date(a.date).getTime():0;
+    var endMs=(a.st==='open')?now:(a.stAt?new Date(a.stAt).getTime():now);
+    out.push({ key:key, firm:m.firm, cos:m.cos, ind:m.ind,
+      grp:a.grp||'', by:a.by||'', date:a.date||'', st:a.st||'open', stAt:a.stAt||'',
+      days: startMs ? Math.max(0, Math.round((endMs-startMs)/86400000)) : 0,
+      memo: String((M[key]||{}).memo||'') });
+  });
+  return out;
+}
+
+// 진행 중을 위로, 그 안에서는 오래 방치된 순. 끝난 건은 최근에 끝난 순.
+function _actSort(rows){
+  var ord={open:0, won:1, lost:2};
+  return rows.sort(function(x,y){
+    var d=(ord[x.st]===undefined?9:ord[x.st])-(ord[y.st]===undefined?9:ord[y.st]);
+    if(d) return d;
+    if(x.st==='open') return y.days-x.days;
+    return String(y.stAt||'')<String(x.stAt||'')?-1:1;
+  });
+}
+
+// 집계 카드 — 클릭하면 그 상태의 제안만 모아 본다
+function renderActStats(){
+  var box=document.getElementById('memo-act-stats'); if(!box) return;
+  var s=actStats();
+  if(!(s.open+s.won+s.lost)){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='flex';
+  var sel=window._memoActFilter;
+  var cards=[
+    {st:'open', v:s.open+'건', l:'진행 중', s:(s.n?'등록 후 평균 '+s.avg+'일':'—'), c:'#1a73e8'},
+    {st:'won',  v:s.won+'건',  l:'성사',    s:'제안이 발주로 이어짐',                    c:'#0f9d58'},
+    {st:'lost', v:s.lost+'건', l:'실패',    s:'미성사 또는 취급 안 함 확인',              c:'#80868b'},
+    {st:'',     v:(s.rate!=null?s.rate+'%':'-'), l:'성사율', s:'성사 ÷ (성사+실패)', c:'#f9ab00'}
+  ];
+  box.innerHTML=cards.map(function(k){
+    var on = k.st && sel===k.st;
+    var clickable = !!k.st;
+    return '<div'+(clickable?' class="act-stat-card" data-st="'+k.st+'" title="클릭하면 '+k.l+'인 제안만 모아 봅니다"':'')
+      +' style="flex:1;background:'+(on?'#f8fbff':'#fff')+';border:1px solid '+(on?k.c:'#e8eaed')
+      +';border-left:4px solid '+k.c+';border-radius:10px;padding:10px 14px'+(clickable?';cursor:pointer':'')
+      +(on?';box-shadow:0 0 0 2px '+k.c+'22':'')+'">'
+      +'<div style="font-size:22px;font-weight:800;line-height:1.15;color:'+k.c+'">'+k.v+'</div>'
+      +'<div style="font-size:11px;color:#9aa0a6;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+      +'<b style="color:#202124;font-weight:700">'+k.l+'</b> · '+(on?'모아 보는 중 · 다시 누르면 해제':k.s)+'</div></div>';
+  }).join('');
+}
+
+// 메모 | 제안 토글
+function renderMemoViewTabs(){
+  var box=document.getElementById('memo-view-tabs'); if(!box) return;
+  var s=actStats(), n=s.open+s.won+s.lost;
+  if(!n){ box.style.display='none'; box.innerHTML=''; window._memoView='memo'; return; }
+  box.style.display='flex';
+  var v=window._memoView;
+  function btn(id,label){
+    var on=(v===id);
+    return '<span class="memo-view-btn" data-view="'+id+'" style="padding:6px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;'
+      +(on?'background:#1a73e8;color:#fff':'background:#fff;color:#5f6368;border:1px solid #dadce0')+'">'+label+'</span>';
+  }
+  box.innerHTML = btn('memo','📝 메모')+btn('act','🎯 제안 '+n);
+}
+
+window.memoSetView=function(v){
+  window._memoView = (v==='act')?'act':'memo';
+  if(window._memoView==='memo') window._memoActFilter='';
+  window.renderMemoSheet();
+};
+
+document.addEventListener('click', function(e){
+  if(!e.target.closest) return;
+  var t=e.target.closest('.memo-view-btn');
+  if(t){ window.memoSetView(t.getAttribute('data-view')); return; }
+  var c=e.target.closest('.act-stat-card');
+  if(c){
+    var st=c.getAttribute('data-st');
+    window._memoActFilter = (window._memoActFilter===st) ? '' : st;
+    window._memoView='act';
+    window.renderMemoSheet();
+    return;
+  }
+});
+
+// 제안 표 렌더 — 메모 시트와 같은 <table> 자리를 쓴다
+function _renderActSheet(){
+  var tbody=document.getElementById('memo-sheet-tbody');
+  var head=document.getElementById('memo-sheet-thead-row');
+  var countEl=document.getElementById('memo-sheet-count');
+  var subEl=document.getElementById('memo-sheet-sub');
+  if(!tbody||!head) return;
+  if(window._memoHeadHtml==null) window._memoHeadHtml=head.innerHTML;   // 메모 뷰로 돌아갈 때 복원
+  head.innerHTML='<th style="width:160px">거래처명</th><th style="width:80px">품목</th>'
+    +'<th style="width:80px">담당</th><th style="width:60px">업종군</th>'
+    +'<th style="width:92px">등록일</th><th style="width:78px">경과</th>'
+    +'<th style="width:78px">상태</th><th>최근 메모</th>';
+
+  var rows=_actRows();
+  var selCos=window._dashSelectedCos, selInd=window._dashSelectedInd;
+  if(selCos&&selCos.size>0) rows=rows.filter(function(r){ return selCos.has(String(r.cos).trim()); });
+  if(selInd&&selInd.size>0) rows=rows.filter(function(r){ return selInd.has(String(r.ind).trim()); });
+  var se=document.getElementById('memo-search'); var q=se?se.value.trim().toLowerCase():'';
+  if(q) rows=rows.filter(function(r){ return r.firm.toLowerCase().indexOf(q)>=0 || r.memo.toLowerCase().indexOf(q)>=0 || r.grp.toLowerCase().indexOf(q)>=0; });
+  if(window._memoActFilter) rows=rows.filter(function(r){ return r.st===window._memoActFilter; });
+  if(window._actFreeze && Array.isArray(window._actOrder)){
+    var pos={}; window._actOrder.forEach(function(k,i){ pos[k]=i; });
+    rows.sort(function(x,y){ return (pos[x.key]==null?1e9:pos[x.key])-(pos[y.key]==null?1e9:pos[y.key]); });
+    window._actFreeze=false;
+  }else{
+    rows=_actSort(rows);
+    window._actOrder=rows.map(function(r){ return r.key; });
+  }
+
+  if(countEl) countEl.textContent='('+rows.length+'건)';
+  if(subEl) subEl.textContent='제안 현황 · 진행 중이 위로, 오래 방치된 순 · 상태 배지를 누르면 진행 중 → 성사 → 실패 순으로 바뀝니다';
+  _memoDateBtns('none');   // 날짜 그룹 전용 버튼은 제안 뷰에서 의미가 없다
+
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:36px;color:#9aa0a6;font-size:13px">'
+      +(window._memoActFilter?'이 상태의 제안이 없습니다':'등록된 제안이 없습니다<br><span style="font-size:11px;color:#bbb">메모를 열고 품목을 고르면 제안으로 등록됩니다</span>')
+      +'</td></tr>';
+    return;
+  }
+  var esc=(typeof v3_esc==='function')?v3_esc:function(x){return String(x==null?'':x);};
+  var icon={}; try{ WS_GRPS.forEach(function(g){ icon[g.name]=g.icon; }); }catch(e){}
+  tbody.innerHTML=rows.map(function(r){
+    // 진행 중은 등록 후 경과일, 끝난 건은 성사·실패까지 걸린 소요일
+    var stale = (r.st==='open') && r.days>=60 ? '#d93025' : (r.st==='open') && r.days>=30 ? '#e67e22' : '#5f6368';
+    var dayTip = (r.st==='open') ? '등록 후 '+r.days+'일 경과' : (r.st==='won'?'성사':'실패')+'까지 '+r.days+'일 소요';
+    var one = r.memo.replace(/\s+/g,' ').trim();
+    return '<tr>'
+      +'<td style="padding:8px 4px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.firm)+'">'
+        +'<b class="firm-hist-link" data-firm="'+esc(r.firm)+'" title="클릭: 이 거래처의 메모 이력" style="cursor:pointer;border-bottom:1px dotted #9aa0a6">'+esc(r.firm)+'</b></td>'
+      +'<td style="text-align:center;font-size:11px;font-weight:700;padding:8px 4px;white-space:nowrap">'+(icon[r.grp]||'')+' '+esc(r.grp||'-')+'</td>'
+      +'<td style="text-align:center;font-size:11px;padding:8px 4px">'+esc(r.by||'-')+'</td>'
+      +'<td style="text-align:center;font-size:11px;padding:8px 4px">'+esc(r.ind||'-')+'</td>'
+      +'<td style="text-align:center;font-size:11px;color:#5f6368;padding:8px 4px;white-space:nowrap">'+esc(r.date||'-')+'</td>'
+      +'<td style="text-align:center;padding:8px 4px;white-space:nowrap" title="'+dayTip+'">'
+        +'<b style="font-size:12px;color:'+stale+'">'+r.days+'일</b></td>'
+      +'<td style="text-align:center;padding:8px 4px">'+actBadge(r.key)+'</td>'
+      +'<td style="word-break:break-word;line-height:1.6;padding:8px 6px;color:#3c4043">'+esc(one)+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+// 메모 뷰로 돌아올 때 원래 헤더를 되돌린다
+function _memoDateBtns(disp){
+  ['memo-expand-btn','memo-past-btn'].forEach(function(id){
+    var b=document.getElementById(id); if(b) b.style.display=disp;
+  });
+}
+function _restoreMemoHead(){
+  _memoDateBtns('');
+  var head=document.getElementById('memo-sheet-thead-row');
+  if(head && window._memoHeadHtml!=null && head.children.length!==9) head.innerHTML=window._memoHeadHtml;
+  var subEl=document.getElementById('memo-sheet-sub');
+  if(subEl) subEl.textContent='저매출·고매출·지역별 시트에서 저장한 메모 목록 · 날짜별 그룹 · 최신순 정렬';
+}
+
+// region_ 키 분류 보정용: 거래처/코스 판별맵 (데이터 동일 시 캐시 재사용)
+//   메모 시트와 제안 시트가 같은 판별을 써야 해서 전역으로 둔다
+function _memoFirmInfo(){
+  var _grows = (window._allRows && window._allRows.length) ? window._allRows : ((typeof GDATA!=='undefined' && GDATA.allRows) ? GDATA.allRows : []);
+  if(window._mfiSrc===_grows && window._mfiCache) return window._mfiCache;
+  var _fi={}, _cs={};
+  try{
+    for(var _gi=0;_gi<_grows.length;_gi++){
+      var _r=_grows[_gi]; if(!_r) continue;
+      if(_r.cos) _cs[_r.cos]=1;
+      if(!_r.firm) continue;
+      if(!_fi[_r.firm]) _fi[_r.firm]={cos:_r.cos||'', ind:_r.ind||'', tc:0};
+      _fi[_r.firm].tc += _r.tc||0;
+      if(!_fi[_r.firm].cos && _r.cos) _fi[_r.firm].cos=_r.cos;
+      if(!_fi[_r.firm].ind && _r.ind) _fi[_r.firm].ind=_r.ind;
+    }
+  }catch(e){}
+  window._mfiCache={firm:_fi, cos:_cs}; window._mfiSrc=_grows;
+  return window._mfiCache;
+}
 window.renderMemoSheet = function(){
   var tbody = document.getElementById('memo-sheet-tbody');
   var countEl = document.getElementById('memo-sheet-count');
   if(!tbody){ return; }
+
+  // 제안이 하나도 없으면 토글도 뜨지 않고 메모 뷰만 쓴다
+  renderActStats();
+  renderMemoViewTabs();
+  if(window._memoView==='act'){ _renderActSheet(); return; }
+  _restoreMemoHead();
 
   // localStorage 직접 읽기
   var data = {};
@@ -5670,25 +5883,7 @@ window.renderMemoSheet = function(){
   var searchEl = document.getElementById('memo-search');
   var q = searchEl ? searchEl.value.trim().toLowerCase() : '';
 
-  // region_ 키 분류 보정용: 거래처/코스 판별맵 (데이터 동일 시 캐시 재사용)
-  var _info = (function(){
-    var _grows = (window._allRows && window._allRows.length) ? window._allRows : ((typeof GDATA!=='undefined' && GDATA.allRows) ? GDATA.allRows : []);
-    if(window._mfiSrc===_grows && window._mfiCache) return window._mfiCache;
-    var _fi={}, _cs={};
-    try{
-      for(var _gi=0;_gi<_grows.length;_gi++){
-        var _r=_grows[_gi]; if(!_r) continue;
-        if(_r.cos) _cs[_r.cos]=1;
-        if(!_r.firm) continue;
-        if(!_fi[_r.firm]) _fi[_r.firm]={cos:_r.cos||'', ind:_r.ind||'', tc:0};
-        _fi[_r.firm].tc += _r.tc||0;
-        if(!_fi[_r.firm].cos && _r.cos) _fi[_r.firm].cos=_r.cos;
-        if(!_fi[_r.firm].ind && _r.ind) _fi[_r.firm].ind=_r.ind;
-      }
-    }catch(e){}
-    window._mfiCache={firm:_fi, cos:_cs}; window._mfiSrc=_grows;
-    return window._mfiCache;
-  })();
+  var _info = _memoFirmInfo();
   var _firmInfo=_info.firm, _cosSet=_info.cos;
 
   var entries = [];
@@ -5815,26 +6010,6 @@ window.renderMemoSheet = function(){
     cosFilterBadge = ' <span style="background:#e8f0fe;color:#1a73e8;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;margin-left:4px">'+(cosArr.length===1?cosArr[0]:cosArr.length+'개 코스')+'</span>';
   }
   if(countEl) countEl.innerHTML = '('+entries.length+'개)'+cosFilterBadge;
-
-  // 제안 집계 (진행 중 / 성사 / 실패 / 성사율)
-  (function(){
-    var box=document.getElementById('memo-act-stats'); if(!box) return;
-    var s=actStats();
-    if(!(s.open+s.won+s.lost)){ box.style.display='none'; box.innerHTML=''; return; }
-    box.style.display='flex';
-    var cards=[
-      {v:s.open+'건', l:'진행 중', s:(s.n?'등록 후 평균 '+s.avg+'일':'\u2014'),  c:'#1a73e8'},
-      {v:s.won+'건',  l:'성사',    s:'제안이 발주로 이어짐',                       c:'#0f9d58'},
-      {v:s.lost+'건', l:'실패',    s:'미성사 또는 취급 안 함 확인',                 c:'#80868b'},
-      {v:(s.rate!=null?s.rate+'%':'-'), l:'성사율', s:'성사 \u00f7 (성사+실패)',   c:'#f9ab00'}
-    ];
-    box.innerHTML=cards.map(function(k){
-      return '<div style="flex:1;background:#fff;border:1px solid #e8eaed;border-left:4px solid '+k.c+';border-radius:10px;padding:10px 14px">'
-        +'<div style="font-size:22px;font-weight:800;line-height:1.15;color:'+k.c+'">'+k.v+'</div>'
-        +'<div style="font-size:11px;color:#9aa0a6;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
-        +'<b style="color:#202124;font-weight:700">'+k.l+'</b> \u00b7 '+k.s+'</div></div>';
-    }).join('');
-  })();
 
   var _hasNotices=false; for(var _k in noticesByDate){ if((noticesByDate[_k]||[]).length){ _hasNotices=true; break; } }
   if(entries.length === 0 && !_hasNotices){
