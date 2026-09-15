@@ -21,9 +21,9 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: npm
@@ -34,5 +34,20 @@ jobs:
       - name: Chromium 설치
         run: npx playwright install --with-deps chromium
 
+      # 실패했을 때 "왜" 를 로그 안에만 두지 않는다.
+      # 저장소 관리자만 로그를 내려받을 수 있어서, 실패 내용은 주석으로도 남긴다.
       - name: 검증 실행
-        run: ./tests/run-all.sh
+        run: |
+          set -o pipefail
+          if ./tests/run-all.sh 2>&1 | tee /tmp/out.txt; then
+            exit 0
+          fi
+          echo "::group::환경"
+          echo "node $(node -v) / python $(python3 -V) / $(uname -srm)"
+          echo "한글 글꼴: $(fc-list :lang=ko 2>/dev/null | wc -l) 개"
+          echo "::endgroup::"
+          echo "::error::한글 글꼴 $(fc-list :lang=ko 2>/dev/null | wc -l)개 · node $(node -v)"
+          grep -E '✗|Error|error:|실패한 스위트' /tmp/out.txt | head -25 | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
+          exit 1
