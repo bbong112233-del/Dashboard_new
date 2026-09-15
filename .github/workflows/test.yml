@@ -46,8 +46,10 @@ jobs:
           echo "node $(node -v) / python $(python3 -V) / $(uname -srm)"
           echo "한글 글꼴: $(fc-list :lang=ko 2>/dev/null | wc -l) 개"
           echo "::endgroup::"
-          echo "::error::한글 글꼴 $(fc-list :lang=ko 2>/dev/null | wc -l)개 · node $(node -v)"
-          grep -E '✗|Error|error:|실패한 스위트' /tmp/out.txt | head -25 | while IFS= read -r line; do
+          echo "::error::한글 글꼴 $(fc-list :lang=ko 2>/dev/null | wc -l)개 · node $(node -v) · node_modules/playwright $([ -d node_modules/playwright ] && echo 있음 || echo 없음)"
+          # 무엇이 걸렸든 마지막 출력은 반드시 보이게 한다.
+          # 패턴으로 고르면, 처음 실패했을 때처럼 한글 메시지가 통째로 빠진다.
+          tail -n 25 /tmp/out.txt | grep -v '^[[:space:]]*$' | while IFS= read -r line; do
             echo "::error::${line}"
           done
           exit 1
