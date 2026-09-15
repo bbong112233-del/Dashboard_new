@@ -37,6 +37,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 .hdr h1{font-size:18px;font-weight:800;letter-spacing:.5px;white-space:nowrap}
 .hdr-left{flex:1;min-width:0}
 .sub{font-size:11px;color:#c8d8ff;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 좁은 화면: 헤더 왼쪽이 목표 버튼에 밀려 한 글자씩 세로로 쪼개지거나
+   매출 요약이 잘리던 것을 막는다. 제목·요약이 한 줄을 온전히 쓰고 버튼은 아래로 내려간다. */
+@media(max-width:820px){
+  .hdr{padding:12px 16px;gap:8px}
+  .hdr-left{flex:1 0 100%;min-width:100%}
+  .hdr h1{font-size:16px;white-space:normal}
+  .sub{white-space:normal;text-overflow:clip}
+}
 .reupload-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
 .reupload-btn input{display:none}
 .reupload-btn:hover{background:rgba(255,255,255,.25)}
@@ -4205,7 +4213,9 @@ function showLsGrpProds(firm, cos, ind, grpKey){
 }
 
 // ══ 고매출 관리 — 메모/체크 헬퍼 (LS_MGMT 공유, hs_ 프리픽스 키) ══
-function hsMgmtKey(firm,cos,ind){ return 'hs_'+firm+'|||'+cos+'|||'+ind; }
+// 고매출 시트도 저매출·품목확대와 같은 키를 쓴다.
+//   예전에는 'hs_' 를 붙여 같은 거래처 메모가 두 키로 갈라졌다 (아래 _migrateHsKeys 로 합친다).
+function hsMgmtKey(firm,cos,ind){ return lsMgmtKey(firm,cos,ind); }
 
 function hsToggleCheck(key){
   if(!LS_MGMT[key]) LS_MGMT[key]={checked:false,memo:''};
@@ -5974,6 +5984,9 @@ window.renderMemoSheet = function(){
       firm = parts[0]||'';
       cos  = parts[1]||'';
       ind  = parts[2]||'';
+      // 키에 'hs_' 가 붙어 있는지가 아니라 지금 매출이 얼마인지로 구분을 정한다
+      var _pf = _firmInfo[firm];
+      if(_pf) isHs = (_pf.tc > 5000000);
     }
     entries.push({
       key: key,
@@ -6671,6 +6684,7 @@ function fbAttach(){
     authGateReveal();
     fbMergeMemos(fbUnpack(snap.val()||{}));
     _syncOrigSave(); _syncSnap=JSON.stringify(window.LS_MGMT);
+    if(typeof _migrateHsKeys==='function') _migrateHsKeys();
     syncSetStatus('ok'); syncRefreshUI();
   }, function(){ syncSetStatus('err'); authGateSet('deny'); });
   _fbNoticeRef=fbNoticesRef();
@@ -6852,6 +6866,65 @@ lsSave=function(){
   fbPushKeys(_changed);
 };
 
+// ── hs_ 키 통합 ─────────────────────────────────────────────
+//   예전 고매출 시트는 'hs_거래처|||코스|||업종군' 이라는 별도 키를 썼다.
+//   같은 거래처 메모가 두 개로 갈라지고 제안도 따로 세어지던 원인이라 하나로 합친다.
+//   원격에서도 지워야 다음 동기화에 되살아나지 않는다 (삭제만 로컬에서 하면 서버가 되돌려 놓는다).
+function _mergeMemoPair(a, b){
+  a=a||{}; b=b||{};
+  var an=(a.ts||a.memoDate||''), bn=(b.ts||b.memoDate||'');
+  var newer = (an>=bn) ? a : b, older = (an>=bn) ? b : a;
+  var base = JSON.parse(JSON.stringify(newer));
+  // 진 쪽 본문이 다르면 버리지 않고 댓글로 남긴다
+  var lo=String(older.memo||'').trim();
+  if(lo && lo!==String(base.memo||'').trim()){
+    if(!Array.isArray(base.comments)) base.comments=[];
+    base.comments.push({
+      id:'mg_'+Math.random().toString(36).slice(2,8),
+      name: older.memoBy || '이전 메모',
+      text: '[고매출 시트에 있던 메모] '+lo,
+      date: older.memoDate || older.ts || new Date().toISOString() });
+  }
+  // 댓글: id 합집합 (삭제 표시가 있으면 그쪽 우선)
+  var byId={};
+  [].concat(Array.isArray(a.comments)?a.comments:[],
+            Array.isArray(b.comments)?b.comments:[],
+            Array.isArray(base.comments)?base.comments:[]).forEach(function(c){
+    if(c&&c.id&&(!byId[c.id]||c.deleted)) byId[c.id]=c; });
+  var cl=Object.keys(byId).map(function(k){ return byId[k]; });
+  if(cl.length) base.comments=cl.sort(function(x,y){ return (x.date||'')<(y.date||'')?-1:1; });
+  // 제안: 품목당 하나이므로 같은 품목이면 최근에 상태가 바뀐 쪽을 남긴다
+  var byGrp={};
+  [].concat(Array.isArray(a.actions)?a.actions:[],
+            Array.isArray(b.actions)?b.actions:[]).forEach(function(x){
+    if(!x) return; var g=x.grp||'', cur=byGrp[g];
+    if(!cur||(x.stAt||'')>(cur.stAt||'')) byGrp[g]=x; });
+  var al=Object.keys(byGrp).map(function(g){ return byGrp[g]; });
+  if(al.length) base.actions=al.sort(function(x,y){ return (x.date||'')<(y.date||'')?-1:1; });
+  else delete base.actions;
+  return base;
+}
+function fbDeleteKeys(keys){
+  if(!syncEnabled()||!_fbReady||!syncTeam()||!keys||!keys.length) return;
+  var upd={}; keys.forEach(function(k){ upd[fbEnc(k)]=null; });
+  try{ fbMemosRef().update(upd).catch(function(){}); }catch(e){}
+}
+function _migrateHsKeys(){
+  var M=window.LS_MGMT||{}, removed=[];
+  Object.keys(M).forEach(function(k){
+    if(k.indexOf('hs_')!==0) return;
+    var plain=k.slice(3);
+    M[plain] = M[plain] ? _mergeMemoPair(M[plain], M[k]) : M[k];
+    delete M[k];
+    removed.push(k);
+  });
+  if(!removed.length) return false;
+  lsSave();                // 합친 키는 후킹된 lsSave 가 저장·업로드한다
+  fbDeleteKeys(removed);   // 원격의 hs_ 키를 지운다
+  try{ if(window.renderMemoSheet) window.renderMemoSheet(); }catch(e){}
+  return true;
+}
+
 // 메모 시트의 직접 삭제도 동기화에 반영
 if(window.deleteMemoEntry){
   var _syncOrigDel=window.deleteMemoEntry;
@@ -6860,6 +6933,7 @@ if(window.deleteMemoEntry){
 
 // 초기화
 (function syncInit(){
+  try{ _migrateHsKeys(); }catch(e){}   // 동기화 없이 쓰는 경우에도 한 번은 합친다
   if(!syncEnabled()){ authGateReveal(); return; } // Firebase 미설정 시 잠금 해제
   syncMakeBadge();
   authGateSet('login');
