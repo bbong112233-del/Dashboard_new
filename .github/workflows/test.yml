@@ -1,0 +1,38 @@
+# 회귀 검증 자동 실행
+#
+#   main 에 올라갈 때마다 브라우저를 띄워 272개 단언을 확인한다.
+#   사람이 "테스트 돌리는 걸 잊는" 경우를 없애는 것이 목적이다.
+#
+#   비밀값을 쓰지 않는다. 검증에 쓰는 데이터는 tests/make-fixture.py 가 매번 만들어 내는
+#   가상 데이터이고, 실제 회원사·매출은 저장소에 없다.
+name: 회귀 검증
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:      # 필요할 때 손으로도 돌릴 수 있게
+
+permissions:
+  contents: read          # 저장소를 읽기만 한다 (쓰기 권한 없음)
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: Chromium 설치
+        run: npx playwright install --with-deps chromium
+
+      - name: 검증 실행
+        run: ./tests/run-all.sh

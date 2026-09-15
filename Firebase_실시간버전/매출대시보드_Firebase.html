@@ -3013,7 +3013,33 @@ document.getElementById('drill-modal').addEventListener('click', function(e){
 // ══ 저매출 관리 — 메모/체크 상태 (localStorage 영속) ══
 const LS_MGMT_KEY = 'ls_mgmt_state';
 window.LS_MGMT = (function(){ try{ return JSON.parse(localStorage.getItem(LS_MGMT_KEY))||{}; }catch(e){ return {}; } })();
-function lsSave(){ try{ localStorage.setItem(LS_MGMT_KEY, JSON.stringify(LS_MGMT)); }catch(e){} }
+function lsSave(){
+  try{ localStorage.setItem(LS_MGMT_KEY, JSON.stringify(LS_MGMT)); lsSaveWarn(null); }
+  catch(e){ lsSaveWarn(e); }
+}
+// 저장 실패를 조용히 넘기면 안 된다 — 사용자는 저장된 줄 알고 브라우저를 닫는다.
+// 저장 공간이 찼거나(용량 초과), 시크릿 창·사이트 데이터 차단이면 여기로 온다.
+function lsSaveWarn(err){
+  var el=document.getElementById('ls-save-warn');
+  if(!err){ if(el) el.remove(); return; }   // 다음 저장이 성공하면 스스로 사라진다
+  if(el) return;                            // 같은 경고를 쌓지 않는다
+  el=document.createElement('div');
+  el.id='ls-save-warn';
+  el.style.cssText='position:fixed;top:0;left:0;right:0;z-index:100001;background:#d93025;color:#fff;'
+    +'padding:11px 16px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;'
+    +'font-family:-apple-system,BlinkMacSystemFont,\'Noto Sans KR\',sans-serif;font-size:14px;font-weight:600;'
+    +'box-shadow:0 2px 10px rgba(0,0,0,.25)';
+  el.innerHTML='⚠️ 이 브라우저에 메모를 저장하지 못했습니다. 새로고침하면 방금 작업이 사라질 수 있습니다.'
+    +'<button id="ls-save-warn-bk" style="background:#fff;color:#d93025;border:none;border-radius:6px;padding:6px 14px;font-weight:700;font-size:13px;cursor:pointer">💾 지금 백업</button>'
+    +'<button id="ls-save-warn-x" style="background:transparent;color:#ffd7d3;border:1px solid rgba(255,255,255,.5);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer">닫기</button>'
+    +'<div style="flex-basis:100%;text-align:center;font-weight:400;font-size:12px;color:#ffd7d3;margin-top:2px">사유: '
+    +(String((err&&err.name)||'')+' '+String((err&&err.message)||err)).replace(/[<>&]/g,'')+'</div>';
+  document.body.appendChild(el);
+  var bk=document.getElementById('ls-save-warn-bk');
+  if(bk) bk.onclick=function(){ if(typeof lsExportState==='function') lsExportState(); };
+  var x=document.getElementById('ls-save-warn-x');
+  if(x) x.onclick=function(){ el.remove(); };
+}
 
 // 메모 버튼 스타일/아이콘: 메모 있음 = 📝+연파랑 배경, 없음 = 연회색 ＋
 function memoBtnSt(has){ return (has?'background:#e8f0fe;border-radius:6px;color:#1a73e8':'background:none;color:#c5cae9')+';border:none;cursor:pointer;font-size:15px;padding:2px 6px'; }
@@ -6825,9 +6851,18 @@ function fbMemosRef(){ return _fbDb.ref(fbTeamPath()+'/memos'); }
 function fbNoticesRef(){ return _fbDb.ref(fbTeamPath()+'/notices'); }
 function gasAuthEmail(){ return _fbEmail; }
 
+// SDK 가 안 실려도 예전에는 0.5초마다 조용히 다시 시도하기만 했다. 화면은 멀쩡해 보이고
+// 로그인 버튼만 반응이 없어서, 원인을 찾는 데 한참 걸렸다. 이제 8초가 지나면 이유를 띄운다.
+// (재시도는 계속한다 — 망이 돌아오면 스스로 회복되도록)
+var _fbSdkWait=0, _fbSdkToldUser=false, _fbSignInWait=0;
 function fbInit(){
   if(!syncEnabled()) return;
-  if(typeof firebase==='undefined'){ setTimeout(fbInit,500); return; }
+  if(typeof firebase==='undefined'){
+    _fbSdkWait+=500;
+    if(_fbSdkWait>=8000 && !_fbSdkToldUser){ _fbSdkToldUser=true; authGateSet('sdkfail'); syncSetStatus('err'); }
+    setTimeout(fbInit,500); return;
+  }
+  _fbSdkWait=0;
   if(_fbAuth) return;
   try{
     firebase.initializeApp(window.FIREBASE_CONFIG);
@@ -6843,7 +6878,14 @@ function fbInit(){
   }catch(e){ syncSetStatus('err'); }
 }
 function fbSignIn(){
-  if(!_fbAuth){ fbInit(); setTimeout(fbSignIn,600); return; }
+  // 버튼을 누를 때마다 끝없는 재시도 사슬이 하나씩 더 생기던 것을 10초에서 끊는다.
+  if(!_fbAuth){
+    fbInit();
+    if((_fbSignInWait+=600)<10000){ setTimeout(fbSignIn,600); }
+    else { _fbSignInWait=0; authGateSet('sdkfail'); syncSetStatus('err'); }
+    return;
+  }
+  _fbSignInWait=0;
   try{ _fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }catch(e){ syncSetStatus('err'); }
 }
 function fbSignOut(){ if(_fbAuth){ fbDetach(); _fbAuth.signOut(); } }
@@ -6939,6 +6981,12 @@ function authGateSet(state){
   if(bIn) bIn.style.display='none'; if(bTeam) bTeam.style.display='none'; if(bOut) bOut.style.display='none';
   if(state==='team'){ if(msg) msg.innerHTML='소속 팀을 선택하면 시작됩니다.'; if(bTeam) bTeam.style.display='inline-block'; if(bOut) bOut.style.display='inline-block'; }
   else if(state==='deny'){ if(msg) msg.innerHTML='접근 권한이 없습니다.<br>관리자에게 계정 등록을 요청하세요.'; if(bOut) bOut.style.display='inline-block'; }
+  else if(state==='sdkfail'){
+    if(msg) msg.innerHTML='⚠️ 로그인 서버에 연결하지 못했습니다.'
+      +'<br><span style="font-size:13px;color:#f8d7d5">사내망이나 보안 프로그램이 google 접속을 막고 있을 수 있습니다.'
+      +'<br>연결되면 자동으로 로그인 화면으로 돌아갑니다.</span>';
+    if(bIn) bIn.style.display='inline-block';   // 직접 눌러 볼 수 있게 남겨 둔다
+  }
   else { if(msg) msg.innerHTML='허가된 사용자만 이용할 수 있습니다.<br>Google 계정으로 로그인해 주세요.'; if(bIn) bIn.style.display='inline-block'; }
 }
 function syncMakeBadge(){
@@ -7340,6 +7388,68 @@ window._sheetBulkSave=function(){
 </script>
 
 <script>
+// ══ ⚠️ 전역 오류 흔적 남기기 ══
+//   지금까지 스크립트 오류는 콘솔에만 찍히고 끝났다. 쓰는 사람은 "왜 안 되지" 만 알고,
+//   원인을 물어봐도 답할 방법이 없었다. 화면 구석에 작게 남겨 두면 그대로 읽어 줄 수 있다.
+(function(){
+  var seen={}, list=[];
+  function rec(msg, where){
+    msg=String(msg||'').slice(0,300);
+    if(!msg || seen[msg]) return;          // 같은 오류가 반복돼도 한 줄만
+    seen[msg]=1;
+    list.push({ t:new Date().toTimeString().slice(0,8), msg:msg, at:String(where||'').slice(0,160) });
+    paint();
+  }
+  function paint(){
+    var c=document.getElementById('err-chip');
+    if(!c){
+      c=document.createElement('div'); c.id='err-chip';
+      c.style.cssText='position:fixed;bottom:14px;left:14px;z-index:9001;background:#fce8e6;border:1px solid #f3b8b2;'
+        +'border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;color:#c5221f;cursor:pointer;'
+        +'box-shadow:0 2px 8px rgba(0,0,0,.12);font-family:-apple-system,BlinkMacSystemFont,\'Noto Sans KR\',sans-serif';
+      c.title='클릭: 오류 내용 보기';
+      c.onclick=open;
+      if(document.body) document.body.appendChild(c);
+    }
+    c.textContent='⚠️ 오류 '+list.length+'건';
+  }
+  function open(){
+    if(document.getElementById('err-pop')) return;
+    var p=document.createElement('div'); p.id='err-pop';
+    p.style.cssText='position:fixed;bottom:48px;left:14px;z-index:9002;background:#fff;border:1px solid #dadce0;'
+      +'border-radius:10px;padding:12px 14px;max-width:min(520px,92vw);max-height:46vh;overflow:auto;'
+      +'box-shadow:0 6px 22px rgba(0,0,0,.18);font-size:12px;line-height:1.6;color:#3c4043;'
+      +'font-family:-apple-system,BlinkMacSystemFont,\'Noto Sans KR\',sans-serif';
+    var rows=list.map(function(e){
+      return '<div style="padding:6px 0;border-top:1px solid #f1f3f4"><b style="color:#c5221f">'+e.t+'</b> '
+        +e.msg.replace(/[<>&]/g,'')+(e.at?'<div style="color:#9aa0a6;font-size:11px">'+e.at.replace(/[<>&]/g,'')+'</div>':'')+'</div>';
+    }).join('');
+    p.innerHTML='<div style="font-weight:700;color:#202124;margin-bottom:4px">화면에서 발생한 오류</div>'
+      +'<div style="color:#5f6368;font-size:11px">아래 내용을 그대로 전달해 주시면 원인을 빨리 찾을 수 있습니다.</div>'
+      +rows
+      +'<div style="margin-top:10px;display:flex;gap:8px">'
+      +'<button id="err-copy" style="background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">📋 복사</button>'
+      +'<button id="err-close" style="background:#fff;color:#5f6368;border:1px solid #dadce0;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer">닫기</button></div>';
+    document.body.appendChild(p);
+    document.getElementById('err-close').onclick=function(){ p.remove(); };
+    document.getElementById('err-copy').onclick=function(){
+      var ta=document.createElement('textarea');
+      ta.value=list.map(function(e){ return e.t+'  '+e.msg+(e.at?'  ('+e.at+')':''); }).join('\n');
+      document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); }catch(e){}
+      ta.remove();
+      this.textContent='✅ 복사됨';
+    };
+  }
+  window.addEventListener('error', function(e){
+    rec(e.message, (e.filename||'').split('/').pop()+(e.lineno?(':'+e.lineno):''));
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    var r=e.reason;
+    rec('처리되지 않은 오류: '+((r&&r.message)||r), '');
+  });
+})();
+
 // ══ 🔄 새 버전 자동 감지 배너 (배포되면 팀원 화면에 알림) ══
 (function(){
   var _verBaseline=null, _verChecking=false;
