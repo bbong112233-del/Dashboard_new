@@ -12,6 +12,7 @@
 
 ```bash
 npm install                 # 처음 한 번
+pip install openpyxl        # 가상 데이터(xlsx) 를 만드는 데 필요
 npx playwright install chromium   # 브라우저가 없다면
 ./tests/run-all.sh          # 전체 실행
 ./tests/run-all.sh tests/verify-proposal-view.js   # 한 종만

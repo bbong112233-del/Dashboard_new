@@ -28,8 +28,14 @@ jobs:
           node-version: '20'
           cache: npm
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
       - name: 의존성 설치
-        run: npm ci
+        run: |
+          npm ci
+          python3 -m pip install --quiet openpyxl   # tests/make-fixture.py 가 xlsx 를 만들 때 쓴다
 
       - name: Chromium 설치
         run: npx playwright install --with-deps chromium
