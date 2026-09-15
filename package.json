@@ -1,10 +1,14 @@
 {
   "name": "sales-dashboard-tests",
   "private": true,
-  "description": "매출 대시보드 회귀 검증 (브라우저를 실제로 띄워 화면을 확인한다)",
+  "description": "매출 대시보드 회귀 검증 (브라우저를 실제로 띄워 화면을 확인한다). xlsx·chart.js 는 테스트 사본이 CDN 대신 로컬에서 읽는다.",
   "scripts": {
     "test": "./tests/run-all.sh",
     "fixture": "python3 tests/make-fixture.py"
   },
-  "devDependencies": { "playwright": "^1.62.0" }
+  "devDependencies": {
+    "chart.js": "^4.4.1",
+    "playwright": "^1.62.0",
+    "xlsx": "^0.18.5"
+  }
 }

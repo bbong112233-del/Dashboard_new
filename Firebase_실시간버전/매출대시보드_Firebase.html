@@ -3083,9 +3083,35 @@ function actAdd(key, grp, by){
   // 제안 등록일은 등록하는 날이다. 메모를 언제 썼는지와는 무관하다.
   var now = new Date().toISOString();
   e.actions.push({ id:'a_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-                   grp:grp||'', by:by||'', date:now.slice(0,10), st:'open', stAt:now });
+                   grp:grp||'', by:by||'', date:now.slice(0,10), st:'open', stAt:now,
+                   note:'',                              // 이 제안에 대한 메모·실패 사유
+                   history:[{st:'open', at:now, by:by||''}] });   // 상태가 바뀐 기록
   return true;
 }
+// 상태 변경 이력 — 같은 (상태, 시각) 은 한 번만 남긴다 (동기화로 양쪽에서 들어와도 중복 없이)
+function actPushHistory(a, st, at, by){
+  if(!a) return;
+  if(!Array.isArray(a.history)) a.history=[];
+  var t=at||new Date().toISOString();
+  for(var i=0;i<a.history.length;i++){ if(a.history[i] && a.history[i].st===st && a.history[i].at===t) return; }
+  a.history.push({st:st, at:t, by:by||a.by||''});
+}
+function actMergeHistory(x, y){
+  var out=[], seen={};
+  [].concat(Array.isArray(x)?x:[], Array.isArray(y)?y:[]).forEach(function(h){
+    if(!h||!h.st||!h.at) return;
+    var k=h.st+'|'+h.at; if(seen[k]) return; seen[k]=1; out.push(h);
+  });
+  return out.sort(function(a,b){ return (a.at||'')<(b.at||'')?-1:1; });
+}
+// 제안 메모 저장
+window.actSetNote=function(key, id, txt){
+  var a=actFind(key,id); if(!a) return false;
+  a.note=String(txt||'').trim();
+  a.noteAt=new Date().toISOString();
+  if(typeof lsSave==='function') lsSave();
+  return true;
+};
 // 메모 키에서 담당 코스를 뽑는다
 //   region_ 키는 키 안에 코스가 없어 거래처명으로 데이터에서 찾는다.
 //   코스 메모(region_코스명)는 거래처가 아니므로 담당이 없다 → 빈 값.
@@ -3162,7 +3188,10 @@ document.addEventListener('click', function(e){
   if(!a) return;
   a.st = ACT_ORDER[(ACT_ORDER.indexOf(a.st)+1+ACT_ORDER.length)%ACT_ORDER.length];
   a.stAt = new Date().toISOString();
+  actPushHistory(a, a.st, a.stAt, a.by);
   if(typeof lsSave==='function') lsSave();
+  // 실패는 '왜'가 남아야 다음에 쓸 수 있다. 진행 중·성사는 묻지 않고 빠르게 넘어간다.
+  if(a.st==='lost' && !String(a.note||'').trim()) actAskReason(_bk, a, b);
   var s = ACT_ST[a.st] || ACT_ST.open;
   var _cmp = b.getAttribute('data-actcompact')==='1';
   b.innerHTML = (a.grp?'<span style="font-weight:700;opacity:.85">'+v3_esc(_actGrpIcon(a.grp))+'</span>':'')+(_cmp?'':s.t);
@@ -5758,6 +5787,7 @@ function _actRows(){
       var endMs=(a.st==='open')?now:(a.stAt?new Date(a.stAt).getTime():now);
       out.push({ key:key, uid:key+'#'+(a.id||''), act:a, firm:m.firm, cos:m.cos, ind:m.ind,
         grp:a.grp||'', by:a.by||'', date:a.date||'', st:a.st||'open', stAt:a.stAt||'',
+        note:String(a.note||''),
         days: startMs ? Math.max(0, Math.round((endMs-startMs)/86400000)) : 0,
         memo: String((M[key]||{}).memo||'') });
     });
@@ -5776,6 +5806,50 @@ function _actSort(rows){
   });
 }
 
+// 실패 사유 입력 — 건너뛰어도 되고, 나중에 제안 뷰에서 적어도 된다
+var ACT_REASONS = ['단가 경쟁력 부족','타사 거래 유지','수요 없음','담당자 반대','시기 부적절'];
+window.actAskReason=function(key, a, anchorEl){
+  var prev=document.getElementById('act-reason-pop'); if(prev) prev.remove();
+  var r=anchorEl&&anchorEl.getBoundingClientRect?anchorEl.getBoundingClientRect():{bottom:120,left:120};
+  var pop=document.createElement('div'); pop.id='act-reason-pop';
+  pop.style.cssText='position:fixed;z-index:10060;background:#fff;border:1px solid #dadce0;border-radius:10px;'
+    +'box-shadow:0 8px 28px rgba(0,0,0,.2);padding:12px 14px;width:290px';
+  pop.style.top=Math.min(window.innerHeight-230, (r.bottom||120)+6)+'px';
+  pop.style.left=Math.max(8, Math.min(window.innerWidth-306, (r.left||120)-110))+'px';
+  pop.innerHTML='<div style="font-size:12px;font-weight:800;color:#202124;margin-bottom:8px">실패 사유 <span style="font-weight:400;color:#9aa0a6">(선택)</span></div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">'
+    + ACT_REASONS.map(function(t){ return '<span class="act-rsn-chip" style="border:1px solid #dadce0;border-radius:6px;padding:3px 8px;font-size:11px;color:#5f6368;cursor:pointer;white-space:nowrap">'+v3_esc(t)+'</span>'; }).join('')
+    +'</div>'
+    +'<textarea id="act-rsn-txt" placeholder="직접 입력…" style="width:100%;height:54px;border:1px solid #dadce0;border-radius:7px;padding:7px;font-size:12px;box-sizing:border-box;font-family:inherit;outline:none;resize:vertical"></textarea>'
+    +'<div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">'
+    +'<button id="act-rsn-skip" style="padding:6px 12px;border:1px solid #dadce0;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;color:#5f6368">건너뛰기</button>'
+    +'<button id="act-rsn-save" style="padding:6px 14px;border:none;border-radius:6px;background:#1a73e8;color:#fff;font-size:12px;font-weight:700;cursor:pointer">저장</button></div>';
+  document.body.appendChild(pop);
+  pop.addEventListener('click', function(ev){ ev.stopPropagation(); });
+  var ta=document.getElementById('act-rsn-txt');
+  pop.querySelectorAll('.act-rsn-chip').forEach(function(c){
+    c.onclick=function(){ ta.value=c.textContent; ta.focus(); };
+  });
+  function close(){ pop.remove(); }
+  document.getElementById('act-rsn-skip').onclick=close;
+  document.getElementById('act-rsn-save').onclick=function(){
+    window.actSetNote(key, a.id, ta.value);
+    close();
+    if(window._memoView==='act') window._actFreeze=true;
+    if(typeof window.renderMemoSheet==='function') window.renderMemoSheet();
+  };
+  // 바깥을 누르면 닫는다. 반드시 '이' 팝오버만 지운다 —
+  // id 로 지우면, 앞서 열렸다 닫힌 팝오버의 리스너가 같은 클릭에서 새 팝오버까지 닫아버린다.
+  setTimeout(function(){
+    ta.focus();
+    function _c(ev){
+      if(pop.contains(ev.target)) return;
+      pop.remove();
+      document.removeEventListener('click', _c);
+    }
+    document.addEventListener('click', _c);
+  },0);
+};
 // 집계 카드 — 클릭하면 그 상태의 제안만 모아 본다
 function renderActStats(){
   var box=document.getElementById('memo-act-stats'); if(!box) return;
@@ -5802,6 +5876,89 @@ function renderActStats(){
   }).join('');
 }
 
+// ══ 📋 제안 주간 요약 ══
+//   팀 보고에 그대로 붙일 수 있는 텍스트를 만든다. 화면을 새로 만들지 않고 복사용 텍스트만 낸다.
+function _actWeekRange(){
+  var now=new Date(), d=new Date(now); d.setHours(0,0,0,0);
+  d.setDate(d.getDate()-((d.getDay()+6)%7));          // 이번 주 월요일
+  var e=new Date(d); e.setDate(e.getDate()+6);
+  return {from:d, to:e};
+}
+function _dISO(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+window.actWeeklyReport=function(){
+  var w=_actWeekRange(), fromS=_dISO(w.from), toS=_dISO(w.to);
+  var rows=(typeof _actRows==='function')?_actRows():[];
+  // 코스·업종군 필터를 그대로 반영한다 (지금 보고 있는 범위 그대로 보고하게)
+  var selCos=window._dashSelectedCos, selInd=window._dashSelectedInd;
+  if(selCos&&selCos.size>0) rows=rows.filter(function(r){ return selCos.has(String(r.cos).trim()); });
+  if(selInd&&selInd.size>0) rows=rows.filter(function(r){ return selInd.has(String(r.ind).trim()); });
+  function inWeek(iso){ if(!iso) return false; var d=String(iso).slice(0,10); return d>=fromS && d<=toS; }
+  var won=[], lost=[], neu=[], stale=[];
+  rows.forEach(function(r){
+    if(r.st==='won'  && inWeek(r.stAt)) won.push(r);
+    else if(r.st==='lost' && inWeek(r.stAt)) lost.push(r);
+    if(r.st==='open' && inWeek(r.date)) neu.push(r);
+    if(r.st==='open' && r.days>=30) stale.push(r);
+  });
+  stale.sort(function(a,b){ return b.days-a.days; });
+  var st=(typeof actStats==='function')?actStats():{open:0,won:0,lost:0,rate:null,avg:0};
+  var L=[];
+  L.push('📋 제안 주간 요약  ('+fromS+' ~ '+toS+')');
+  var scope=[];
+  if(selCos&&selCos.size>0) scope.push('코스 '+Array.from(selCos).join('·'));
+  if(selInd&&selInd.size>0) scope.push('업종군 '+Array.from(selInd).join('·'));
+  if(scope.length) L.push('대상: '+scope.join(' / '));
+  L.push('');
+  function line(r, extra){
+    return '  · '+r.firm+'  '+(r.grp||'-')+'  '+(r.by||'-')+(extra?'  '+extra:'');
+  }
+  L.push('■ 이번 주 성사  '+won.length+'건');
+  won.length ? won.forEach(function(r){ L.push(line(r,'(소요 '+r.days+'일)'+(r.note?'  — '+r.note:''))); })
+             : L.push('  (없음)');
+  L.push('');
+  L.push('■ 이번 주 실패  '+lost.length+'건');
+  lost.length ? lost.forEach(function(r){ L.push(line(r, r.note?'— '+r.note:'— 사유 미기재')); })
+              : L.push('  (없음)');
+  L.push('');
+  L.push('■ 이번 주 신규 제안  '+neu.length+'건');
+  neu.length ? neu.forEach(function(r){ L.push(line(r, r.note?'— '+r.note:'')); })
+             : L.push('  (없음)');
+  L.push('');
+  L.push('■ 30일 이상 방치  '+stale.length+'건   ← 먼저 챙길 것');
+  stale.length ? stale.slice(0,15).forEach(function(r){ L.push(line(r, r.days+'일 경과'+(r.note?'  — '+r.note:''))); })
+               : L.push('  (없음)');
+  if(stale.length>15) L.push('  … 외 '+(stale.length-15)+'건');
+  L.push('');
+  L.push('■ 전체  진행 중 '+st.open+' · 성사 '+st.won+' · 실패 '+st.lost
+         +(st.rate!=null?' · 성사율 '+st.rate+'%':'')+(st.n?' · 진행 건 평균 '+st.avg+'일':''));
+  return L.join('\n');
+};
+window.actOpenWeekly=function(){
+  var txt=window.actWeeklyReport();
+  var prev=document.getElementById('act-week-modal'); if(prev) prev.remove();
+  var m=document.createElement('div'); m.id='act-week-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10040;display:flex;align-items:center;justify-content:center;padding:20px';
+  m.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px 22px;width:680px;max-width:95vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.25)">'
+    +'<div style="font-size:16px;font-weight:800;color:#202124;margin-bottom:3px">📋 제안 주간 요약</div>'
+    +'<div style="font-size:12px;color:#5f6368;margin-bottom:12px">그대로 복사해 팀 보고에 붙여 넣으세요. 지금 걸어둔 코스·업종군 필터가 반영됩니다.</div>'
+    +'<textarea id="act-week-txt" readonly style="flex:1;min-height:340px;border:1px solid #dadce0;border-radius:8px;padding:12px;font-size:12.5px;line-height:1.75;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical;outline:none;background:#fafbfc"></textarea>'
+    +'<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">'
+    +'<button id="act-week-close" style="padding:8px 16px;border:1px solid #dadce0;border-radius:7px;background:#fff;cursor:pointer;font-size:13px">닫기</button>'
+    +'<button id="act-week-copy" style="padding:8px 18px;border:none;border-radius:7px;background:#1a73e8;color:#fff;cursor:pointer;font-size:13px;font-weight:700">📄 복사</button>'
+    +'</div></div>';
+  document.body.appendChild(m);
+  document.getElementById('act-week-txt').value=txt;
+  document.getElementById('act-week-close').onclick=function(){ m.remove(); };
+  document.getElementById('act-week-copy').onclick=function(){
+    var ta=document.getElementById('act-week-txt');
+    ta.select(); ta.setSelectionRange(0,999999);
+    var okc=false; try{ okc=document.execCommand('copy'); }catch(e){}
+    var b=document.getElementById('act-week-copy');
+    b.textContent= okc?'✅ 복사됨':'⌘/Ctrl+C 로 복사';
+    setTimeout(function(){ b.textContent='📄 복사'; },1800);
+  };
+  m.addEventListener('click', function(ev){ if(ev.target===m) m.remove(); });
+};
 // 메모 | 제안 토글
 function renderMemoViewTabs(){
   var box=document.getElementById('memo-view-tabs'); if(!box) return;
@@ -5814,7 +5971,10 @@ function renderMemoViewTabs(){
     return '<span class="memo-view-btn" data-view="'+id+'" style="padding:6px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;'
       +(on?'background:#1a73e8;color:#fff':'background:#fff;color:#5f6368;border:1px solid #dadce0')+'">'+label+'</span>';
   }
-  box.innerHTML = btn('memo','📝 메모')+btn('act','🎯 제안 '+n);
+  box.innerHTML = btn('memo','📝 메모')+btn('act','🎯 제안 '+n)
+    + (v==='act' ? '<span id="act-week-btn" title="이번 주 성사·실패·방치 건을 보고용 텍스트로 만듭니다"'
+        +' style="margin-left:6px;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;'
+        +'background:#fff;color:#5f6368;border:1px solid #dadce0">📋 주간 요약</span>' : '');
 }
 
 window.memoSetView=function(v){
@@ -5825,8 +5985,16 @@ window.memoSetView=function(v){
 
 document.addEventListener('click', function(e){
   if(!e.target.closest) return;
+  if(e.target.closest('#act-week-btn')){ window.actOpenWeekly(); return; }
   var t=e.target.closest('.memo-view-btn');
   if(t){ window.memoSetView(t.getAttribute('data-view')); return; }
+  var nc=e.target.closest('.act-note-cell');
+  if(nc){
+    e.stopPropagation(); e.preventDefault();
+    var _nk=nc.getAttribute('data-actkey'), _na=actFind(_nk, nc.getAttribute('data-actid'));
+    if(_na) window.actAskReason(_nk, _na, nc);
+    return;
+  }
   var c=e.target.closest('.act-stat-card');
   if(c){
     var st=c.getAttribute('data-st');
@@ -5848,7 +6016,7 @@ function _renderActSheet(){
   head.innerHTML='<th style="width:160px">거래처명</th><th style="width:80px">품목</th>'
     +'<th style="width:80px">담당</th><th style="width:60px">업종군</th>'
     +'<th style="width:92px">등록일</th><th style="width:78px">경과</th>'
-    +'<th style="width:78px">상태</th><th>최근 메모</th>';
+    +'<th style="width:78px">상태</th><th>제안 메모 · 사유</th>';
 
   var rows=_actRows();
   var selCos=window._dashSelectedCos, selInd=window._dashSelectedInd;
@@ -5893,7 +6061,12 @@ function _renderActSheet(){
       +'<td style="text-align:center;padding:8px 4px;white-space:nowrap" title="'+dayTip+'">'
         +'<b style="font-size:12px;color:'+stale+'">'+r.days+'일</b></td>'
       +'<td style="text-align:center;padding:8px 4px">'+actBadge(r.key, r.act)+'</td>'
-      +'<td style="word-break:break-word;line-height:1.6;padding:8px 6px;color:#3c4043">'+esc(one)+'</td>'
+      +'<td style="word-break:break-word;line-height:1.6;padding:8px 6px">'
+        +'<span class="act-note-cell" data-actkey="'+esc(r.key)+'" data-actid="'+esc(r.act.id||'')+'"'
+        +' title="클릭: 이 제안의 메모·사유를 적습니다" style="cursor:pointer;display:block;color:'
+        +(r.note?'#3c4043':'#c5cad0')+'">'+(r.note?esc(r.note):'＋ 메모')+'</span>'
+        +(one?'<span style="display:block;font-size:11px;color:#9aa0a6;margin-top:3px">거래처 메모 · '+esc(one)+'</span>':'')
+      +'</td>'
       +'</tr>';
   }).join('');
 }
@@ -6724,7 +6897,15 @@ function fbMergeMemos(remote){
       la.concat(ra).forEach(function(a){
         if(!a||!a.id) return;
         var cur=aById[a.id];
-        if(!cur||(a.stAt||'')>(cur.stAt||'')) aById[a.id]=a;
+        if(!cur){ aById[a.id]=a; return; }
+        // 상태는 최근에 바뀐 쪽, 이력은 양쪽 합집합, 메모는 최근에 적은 쪽
+        var win=((a.stAt||'')>(cur.stAt||''))?a:cur, lose=(win===a)?cur:a;
+        var merged=JSON.parse(JSON.stringify(win));
+        merged.history=actMergeHistory(a.history, cur.history);
+        if(!String(merged.note||'').trim() || (lose.noteAt||'')>(win.noteAt||'')){
+          if(String(lose.note||'').trim()){ merged.note=lose.note; merged.noteAt=lose.noteAt; }
+        }
+        aById[a.id]=merged;
       });
       base.actions=Object.keys(aById).map(function(k3){ return aById[k3]; })
         .sort(function(x,y){ return (x.date||'')<(y.date||'')?-1:1; });
@@ -6898,7 +7079,12 @@ function _mergeMemoPair(a, b){
   [].concat(Array.isArray(a.actions)?a.actions:[],
             Array.isArray(b.actions)?b.actions:[]).forEach(function(x){
     if(!x) return; var g=x.grp||'', cur=byGrp[g];
-    if(!cur||(x.stAt||'')>(cur.stAt||'')) byGrp[g]=x; });
+    if(!cur){ byGrp[g]=x; return; }
+    var w=((x.stAt||'')>(cur.stAt||''))?x:cur, l=(w===x)?cur:x;
+    var mg=JSON.parse(JSON.stringify(w));
+    mg.history=actMergeHistory(x.history, cur.history);
+    if(!String(mg.note||'').trim() && String(l.note||'').trim()){ mg.note=l.note; mg.noteAt=l.noteAt; }
+    byGrp[g]=mg; });
   var al=Object.keys(byGrp).map(function(g){ return byGrp[g]; });
   if(al.length) base.actions=al.sort(function(x,y){ return (x.date||'')<(y.date||'')?-1:1; });
   else delete base.actions;
