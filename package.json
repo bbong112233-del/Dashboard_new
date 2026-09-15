@@ -1,0 +1,10 @@
+{
+  "name": "sales-dashboard-tests",
+  "private": true,
+  "description": "매출 대시보드 회귀 검증 (브라우저를 실제로 띄워 화면을 확인한다)",
+  "scripts": {
+    "test": "./tests/run-all.sh",
+    "fixture": "python3 tests/make-fixture.py"
+  },
+  "devDependencies": { "playwright": "^1.62.0" }
+}
