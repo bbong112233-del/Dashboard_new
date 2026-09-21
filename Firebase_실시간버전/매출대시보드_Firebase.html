@@ -788,7 +788,7 @@ const TARGET_DATA={};
 const GDATA={};
 
 // ── HTML 이스케이프 유틸리티 ──
-function v3_esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');}
+function v3_esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
 function showDrilldown(catName,group,midName,majorName){
   const cfg={
@@ -1188,7 +1188,7 @@ function showRegionDrilldown(cosName){
 // 코스 행 (클릭 가능)
 function tRowRegion(i,name,cur,cmp,qty,total,color,tgt,firmCnt,firmCntP,itemCnt,itemCntP){
   const diff=cur-cmp;const gr=growth(cur,cmp);const pct=total?cur/total*100:0;
-  const safeN=name.replace(/'/g,"\\'");
+  const safeN=v3_esc(name);
   let tgtCols='';
   if(tgt!=null&&tgt>0){
     const rate=cur/tgt*100;const shortfall=tgt-cur;
@@ -1225,7 +1225,7 @@ function tRowRegion(i,name,cur,cmp,qty,total,color,tgt,firmCnt,firmCntP,itemCnt,
   const _hasMemo=!!(_regState.memo&&_regState.memo.trim());
   const _memoTitle=_hasMemo?('메모: '+_regState.memo.replace(/"/g,'&quot;').replace(/'/g,'&#39;')):'메모 추가';
   const _memoTd='<td style="text-align:center;padding:4px 2px"><button class="region-memo-btn" data-regkey="'+_escRegKey+'" title="'+_memoTitle+'" style="'+memoBtnSt(_hasMemo)+'">'+memoBtnIc(_hasMemo)+'</button></td>';
-  return'<tr class="cat-row" data-cos="'+safeN+'" style="cursor:pointer"><td>'+rkSp(i)+'</td><td><b>'+name+'</b></td><td>'+fmtW(cur)+'</td><td>'+fmtW(cmp)+'</td><td style="color:'+(diff>=0?'#27ae60':'#e74c3c')+'">'+(diff>=0?'+':'')+Math.round(diff).toLocaleString()+'원</td><td>'+gRow(gr)+'</td><td>'+pbarHtml(pct,color)+'</td>'+tgtCols+firmCols+itemCols+_memoTd+'</tr>';
+  return'<tr class="cat-row" data-cos="'+safeN+'" style="cursor:pointer"><td>'+rkSp(i)+'</td><td><b>'+v3_esc(name)+'</b></td><td>'+fmtW(cur)+'</td><td>'+fmtW(cmp)+'</td><td style="color:'+(diff>=0?'#27ae60':'#e74c3c')+'">'+(diff>=0?'+':'')+Math.round(diff).toLocaleString()+'원</td><td>'+gRow(gr)+'</td><td>'+pbarHtml(pct,color)+'</td>'+tgtCols+firmCols+itemCols+_memoTd+'</tr>';
 }
 
 // 전선 상품 클릭 → 규격 TOP 30 드릴다운
@@ -1261,17 +1261,17 @@ function showWireSpec(prodName){
 // 전선 상품 행 (클릭 가능, 규격 드릴다운 연결)
 function tRowWire(i,name,cur,cmp,qty,total,color,iCnt,iPrv){
   const diff=cur-cmp;const gr=growth(cur,cmp);const pct=total?cur/total*100:0;
-  const safeN=name.replace(/'/g,"\\'");
-  return`<tr class="cat-row" onclick="showWireSpec('${safeN}')"><td>${rkSp(i)}</td><td><b>${name}</b></td><td>${fmtW(cur)}</td><td>${fmtW(cmp)}</td><td style="color:${diff>=0?'#27ae60':'#e74c3c'}">${diff>=0?'+':''}${Math.round(diff).toLocaleString()}원</td><td>${gRow(gr)}</td><td>${qty.toLocaleString()}</td><td>${pbarHtml(pct,color)}</td></tr>`;
+  const safeN=v3_esc(name.replace(/'/g,"\\'"));
+  return`<tr class="cat-row" onclick="showWireSpec('${safeN}')"><td>${rkSp(i)}</td><td><b>${v3_esc(name)}</b></td><td>${fmtW(cur)}</td><td>${fmtW(cmp)}</td><td style="color:${diff>=0?'#27ae60':'#e74c3c'}">${diff>=0?'+':''}${Math.round(diff).toLocaleString()}원</td><td>${gRow(gr)}</td><td>${qty.toLocaleString()}</td><td>${pbarHtml(pct,color)}</td></tr>`;
 }
 
 // tRow with drill-down click (category rows)
 function tRowD(i,name,cur,cmp,qty,total,color,group,iCnt,iPrv,firmCnt,firmPrv){
   const diff=cur-cmp;const gr=growth(cur,cmp);const pct=total?cur/total*100:0;
-  const safeN=name.replace(/'/g,"\\'");
+  const safeN=v3_esc(name.replace(/'/g,"\\'"));
   const ic=iCnt||0,ip=iPrv||0,id=ic-ip;const iCol=id>0?'#0f9d58':id<0?'#d93025':'#5f6368';
   const fc=firmCnt||0,fp=firmPrv||0,fd=fc-fp;const fCol=fd>0?'#0f9d58':fd<0?'#d93025':'#5f6368';
-  return`<tr class="cat-row" onclick="showMajorDrill('${safeN}','${group}')"><td>${rkSp(i)}</td><td><b>${name}</b></td><td>${fmtW(cur)}</td><td>${fmtW(cmp)}</td><td style="color:${diff>=0?'#27ae60':'#e74c3c'}">${diff>=0?'+':''}${Math.round(diff).toLocaleString()}원</td><td>${gRow(gr)}</td><td style="text-align:right;font-weight:700">${ic}개</td><td style="text-align:right;color:#80868b">${ip}개</td><td style="text-align:right;font-weight:700;color:${iCol}">${id>0?'+':''}${id}</td><td style="text-align:right;font-weight:700;background:#fff5f8">${fc}개</td><td style="text-align:right;color:#80868b;background:#fff5f8">${fp}개</td><td style="text-align:right;font-weight:700;color:${fCol};background:#fff5f8">${fd>0?'+':''}${fd}</td><td>${pbarHtml(pct,color)}</td></tr>`;
+  return`<tr class="cat-row" onclick="showMajorDrill('${safeN}','${group}')"><td>${rkSp(i)}</td><td><b>${v3_esc(name)}</b></td><td>${fmtW(cur)}</td><td>${fmtW(cmp)}</td><td style="color:${diff>=0?'#27ae60':'#e74c3c'}">${diff>=0?'+':''}${Math.round(diff).toLocaleString()}원</td><td>${gRow(gr)}</td><td style="text-align:right;font-weight:700">${ic}개</td><td style="text-align:right;color:#80868b">${ip}개</td><td style="text-align:right;font-weight:700;color:${iCol}">${id>0?'+':''}${id}</td><td style="text-align:right;font-weight:700;background:#fff5f8">${fc}개</td><td style="text-align:right;color:#80868b;background:#fff5f8">${fp}개</td><td style="text-align:right;font-weight:700;color:${fCol};background:#fff5f8">${fd>0?'+':''}${fd}</td><td>${pbarHtml(pct,color)}</td></tr>`;
 }
 
 // ── CHART REGISTRY ──
@@ -1302,8 +1302,8 @@ function pbarHtml(pct,color){return`<div class="pbar-w"><div class="pbar"><div c
 function growth(cur,cmp){if(!cmp||cmp<=0)return null;return(cur-cmp)/cmp*100;}
 function kpiHtml(lbl,val,chg,note,cls){const sign=chg>=0?'up':'dn';const arr=chg>=0?'▲':'▼';return`<div class="kpi ${cls}"><div class="kpi-lbl">${lbl}</div><div class="kpi-val">${val}</div><div class="kpi-chg ${sign}">${arr} ${Math.abs(chg).toFixed(1)}%</div><div class="kpi-note">${note}</div></div>`;}
 function grpStats(cur,cmp,qty){const gr=growth(cur,cmp)||0;const sign=gr>=0?'▲':'▼';return`<div class="gs"><div class="gs-val">${fmt(cur)}</div><div class="gs-lbl">현재 매출</div></div><div class="gs"><div class="gs-val">${fmt(cmp)}</div><div class="gs-lbl">비교 매출</div></div><div class="gs"><div class="gs-val">${sign}${Math.abs(gr).toFixed(1)}%</div><div class="gs-lbl">성장률</div></div>`;}
-function spotHtml(rank,name,cat,cur,cmp,color){const gr=growth(cur,cmp);return`<div class="spot" style="border-top-color:${color}"><div class="sp-rnk">${rank}</div><div class="sp-name" title="${name}">${name}</div><div class="sp-cat">${cat}</div><div class="sp-val" style="color:${color}">${fmtW(cur)}</div><div class="sp-sub">${gRow(gr)}</div></div>`;}
-function tRow(i,name,cur,cmp,qty,total,color){const diff=cur-cmp;const gr=growth(cur,cmp);const pct=total?cur/total*100:0;return`<tr><td>${rkSp(i)}</td><td><b>${name}</b></td><td>${fmtW(cur)}</td><td>${fmtW(cmp)}</td><td style="color:${diff>=0?'#27ae60':'#e74c3c'}">${diff>=0?'+':''}${Math.round(diff).toLocaleString()}원</td><td>${gRow(gr)}</td><td>${qty.toLocaleString()}</td><td>${pbarHtml(pct,color)}</td></tr>`;}
+function spotHtml(rank,name,cat,cur,cmp,color){const gr=growth(cur,cmp);return`<div class="spot" style="border-top-color:${color}"><div class="sp-rnk">${rank}</div><div class="sp-name" title="${v3_esc(name)}">${v3_esc(name)}</div><div class="sp-cat">${v3_esc(cat)}</div><div class="sp-val" style="color:${color}">${fmtW(cur)}</div><div class="sp-sub">${gRow(gr)}</div></div>`;}
+function tRow(i,name,cur,cmp,qty,total,color){const diff=cur-cmp;const gr=growth(cur,cmp);const pct=total?cur/total*100:0;return`<tr><td>${rkSp(i)}</td><td><b>${v3_esc(name)}</b></td><td>${fmtW(cur)}</td><td>${fmtW(cmp)}</td><td style="color:${diff>=0?'#27ae60':'#e74c3c'}">${diff>=0?'+':''}${Math.round(diff).toLocaleString()}원</td><td>${gRow(gr)}</td><td>${qty.toLocaleString()}</td><td>${pbarHtml(pct,color)}</td></tr>`;}
 // 그룹 도넛 (비중% 상시 표기)
 function grpDonut(id,labels,vals,colors){
   const tot=vals.reduce((s,v)=>s+v,0);
@@ -1361,6 +1361,18 @@ function parseExcel(wb){
   }
   const OT=detectOff(tcB),OW=detectOff(wB),OL=detectOff(lB),OM=detectOff(mB),OR=detectOff(rB);
 
+  // ── 열 검증 ──
+  //   못 찾은 열은 지금까지 조용히 0으로 처리돼, 화면은 멀쩡한데 숫자만 틀렸다.
+  //   찾지 못하면 그 사실을 그대로 올려 보낸다 (fatal=업로드 중단, info=배너 안내).
+  const warnFatal=[], warnInfo=[];
+  if(C_COS<0)  warnFatal.push("'코스' 열을 찾지 못했습니다");
+  if(C_FIRM<0) warnFatal.push("'거래처명' 열을 찾지 못했습니다");
+  if(tcB<0)    warnFatal.push("'총합계' 제목을 찾지 못했습니다");
+  if(C_PROD<0) warnInfo.push("'상품명' 열을 찾지 못해 상품별 분석이 비어 있습니다");
+  [['전선',wB],['조명',lB],['부자재',mB],['MRO',rB]].forEach(p=>{
+    if(p[1]<0) warnInfo.push("'"+p[0]+"' 제목을 찾지 못해 "+p[0]+" 매출이 0으로 나옵니다");
+  });
+
   // Safe extractors
   function gn(row,idx){if(!row||idx<0||idx>=row.length)return 0;const v=row[idx],num=Number(v);return(v!==null&&v!==undefined&&isFinite(num))?num:0;}
   function gs(row,idx){if(!row||idx<0||idx>=row.length)return'';const v=row[idx];return(v!==null&&v!==undefined)?String(v):'';}
@@ -1376,13 +1388,19 @@ function parseExcel(wb){
 
   // Parse data rows
   const rows=[];
+  let lastCos='', nFilled=0, nSkipped=0;
   for(let i=dataStart;i<raw.length;i++){
     const r=raw[i];
     if(!r)continue;
-    const cosVal=gs(r,cosIdx);
+    let cosVal=gs(r,cosIdx).trim();
+    // 코스를 첫 행에만 표시하는 피벗(병합 셀) 대응 — 비면 위 행의 코스를 이어받는다
+    if(cosVal) lastCos=cosVal; else if(lastCos){ cosVal=lastCos; nFilled++; }
     if(!cosVal||cosVal==='총합계')continue;
+    const firmVal=C_FIRM>=0?gs(r,C_FIRM).trim():'';
+    // 거래처명이 없는 행은 코스 소계·요약 행이다 — 함께 더하면 합계가 두 배가 된다
+    if(C_FIRM>=0&&!firmVal){ nSkipped++; continue; }
     rows.push({
-      cos:cosVal.trim(), ind:gs(r,C_IND).trim(), firm:gs(r,C_FIRM).trim(), cat:gs(r,C_CAT).trim(), mid:gs(r,C_MID).trim(), spec:gs(r,C_SPEC).trim(), prod:gs(r,C_PROD).trim(), brand:gs(r,C_BRAND).trim(), major:gs(r,C_MAJOR).trim(),
+      cos:cosVal, ind:gs(r,C_IND).trim(), firm:firmVal, cat:gs(r,C_CAT).trim(), mid:gs(r,C_MID).trim(), spec:gs(r,C_SPEC).trim(), prod:gs(r,C_PROD).trim(), brand:gs(r,C_BRAND).trim(), major:gs(r,C_MAJOR).trim(),
       tc: gn(r,tcB+OT.cur), tcp:gn(r,tcB+OT.cmp), tq: gn(r,tcB+OT.qty), tqp:gn(r,tcB+OT.qtyp),
       wc: gn(r,wB+OW.cur),  wcp:gn(r,wB+OW.cmp),  wq: gn(r,wB+OW.qty),  wqp:gn(r,wB+OW.qtyp),
       lc: gn(r,lB+OL.cur),  lcp:gn(r,lB+OL.cmp),  lq: gn(r,lB+OL.qty),  lqp:gn(r,lB+OL.qtyp),
@@ -1412,7 +1430,9 @@ function parseExcel(wb){
       grand.rc+=r.rc; grand.rcp+=r.rcp; grand.rq+=r.rq;  grand.rqp+=r.rqp;
     });
   }
-  return{rows,grand};
+  if(nFilled)  warnInfo.push('코스 칸이 비어 있던 '+nFilled+'행은 바로 위 행의 코스로 처리했습니다');
+  if(nSkipped) warnInfo.push('거래처명이 없는 '+nSkipped+'행(소계·요약으로 보임)은 합계에서 제외했습니다');
+  return{rows,grand,warn:{fatal:warnFatal,info:warnInfo}};
 }
 
 function agg(rows,keyFn,curFld,cmpFld,qFld,qpFld){
@@ -1935,8 +1955,17 @@ function handleFile(file){
           alert('파일 처리 중 오류가 발생했습니다.\n'+((err&&err.message)||err));
           console.error(err);
         };
-        var _afterParse=function(rows,grand){
+        var _afterParse=function(rows,grand,warn){
           try{
+            var _wn=warn||{};
+            if(_wn.fatal&&_wn.fatal.length){
+              document.getElementById('loading').style.display='none';
+              if(dz)dz.classList.remove('file-selected');
+              if(fpc)fpc.classList.remove('show');
+              alert('엑셀 형식을 알아보지 못했습니다.\n\n· '+_wn.fatal.join('\n· ')
+                +'\n\n피벗 시트의 제목 행(코스·업종군·거래처명 / 총합계·전선·조명…)을 확인해 주세요.');
+              return;
+            }
             if(!rows||rows.length===0){
               document.getElementById('loading').style.display='none';
               if(dz)dz.classList.remove('file-selected');
@@ -1958,13 +1987,14 @@ function handleFile(file){
               document.getElementById('target-month-wrap').style.display='flex';
               (function(){var _tm=document.getElementById('sel-target-month'); if(_tm&&!_tm.value){ _tm.value=String(new Date().getMonth()+1); } if(_tm&&_tm.value&&typeof renderTargetKPI==='function') renderTargetKPI(); })();
               document.getElementById('tgt-upload-wrap').style.display='flex';
+              if(_wn.info&&_wn.info.length&&typeof _parseWarnBanner==='function') _parseWarnBanner(_wn.info);
               setTimeout(function(){var nav=document.getElementById('top-nav');var pw=document.getElementById('panels-wrap');if(nav&&pw)pw.style.paddingTop=nav.getBoundingClientRect().height+'px';},30);
               // 저매출/고매출 패널은 대시보드 표시 후 백그라운드 렌더 (초기 로딩 체감 단축)
               setTimeout(function(){ try{ if(typeof renderGrowthPanel==='function')renderGrowthPanel(); if(typeof renderLowSalesPanel==='function')renderLowSalesPanel(); if(typeof renderHighSalesPanel==='function')renderHighSalesPanel(); }catch(_e){} },0);
             },500);
           }catch(err){ _parseError(err); }
         };
-        var _syncParse=function(){ try{ const wb=XLSX.read(_buf,{type:'array',cellDates:false}); const pr=parseExcel(wb); _afterParse(pr.rows,pr.grand); }catch(err){ _parseError(err); } };
+        var _syncParse=function(){ try{ const wb=XLSX.read(_buf,{type:'array',cellDates:false}); const pr=parseExcel(wb); _afterParse(pr.rows,pr.grand,pr.warn); }catch(err){ _parseError(err); } };
         // 백그라운드 스레드(Web Worker)로 파싱 → 화면 안 멈춤. 실패 시 동기 파싱으로 폴백.
         var _wStarted=false;
         try{
@@ -1972,12 +2002,12 @@ function handleFile(file){
             var _xlsxUrl='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
             var _wsrc=['self.onmessage=function(ev){try{importScripts("'+_xlsxUrl+'");var wb=XLSX.read(ev.data,{type:"array",cellDates:false});var __pe=',
               parseExcel.toString(),
-              ';var out=__pe(wb);self.postMessage({ok:true,rows:out.rows,grand:out.grand});}catch(err){self.postMessage({ok:false,error:String((err&&err.message)||err)});}};'].join('');
+              ';var out=__pe(wb);self.postMessage({ok:true,rows:out.rows,grand:out.grand,warn:out.warn});}catch(err){self.postMessage({ok:false,error:String((err&&err.message)||err)});}};'].join('');
             var _wurl=URL.createObjectURL(new Blob([_wsrc],{type:'application/javascript'}));
             var _w=new Worker(_wurl);
             var _done=false;
             _wStarted=true;
-            _w.onmessage=function(m){ if(_done)return; _done=true; try{URL.revokeObjectURL(_wurl);}catch(_g){} try{_w.terminate();}catch(_g){} if(m.data&&m.data.ok){ _afterParse(m.data.rows,m.data.grand); } else { console.warn('worker 파싱 실패, 동기 폴백:', m.data&&m.data.error); _syncParse(); } };
+            _w.onmessage=function(m){ if(_done)return; _done=true; try{URL.revokeObjectURL(_wurl);}catch(_g){} try{_w.terminate();}catch(_g){} if(m.data&&m.data.ok){ _afterParse(m.data.rows,m.data.grand,m.data.warn); } else { console.warn('worker 파싱 실패, 동기 폴백:', m.data&&m.data.error); _syncParse(); } };
             _w.onerror=function(er){ if(_done)return; _done=true; try{URL.revokeObjectURL(_wurl);}catch(_g){} try{_w.terminate();}catch(_g){} console.warn('worker 오류, 동기 폴백', er&&er.message); _syncParse(); };
             _w.postMessage(_buf);
           }
@@ -2887,6 +2917,22 @@ function _targetWarnBanner(list){
     '<button id="tgt-warn-dismiss" style="background:rgba(0,0,0,.12);color:#3c2f00;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">\ud655\uc778</button>';
   document.body.appendChild(b);
   document.getElementById('tgt-warn-dismiss').onclick=function(){ b.remove(); };
+}
+// 파싱 중 보정·제외한 내용을 알린다 — 숫자가 달라 보일 때 이유를 바로 알 수 있게
+function _parseWarnBanner(list){
+  var prev=document.getElementById('parse-warn-banner'); if(prev)prev.remove();
+  var b=document.createElement('div');
+  b.id='parse-warn-banner';
+  b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:100000;background:#f9ab00;color:#3c2f00;'
+    +'padding:11px 16px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;'
+    +"font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;font-size:13.5px;font-weight:600;"
+    +'box-shadow:0 2px 10px rgba(0,0,0,.2)';
+  b.innerHTML='⚠️ 엑셀을 읽으면서 아래를 처리했습니다 — '
+    +list.map(function(x){ return v3_esc(String(x)); }).join(' / ')
+    +'<button id="parse-warn-dismiss" style="background:rgba(0,0,0,.12);color:#3c2f00;border:none;'
+    +'border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">확인</button>';
+  document.body.appendChild(b);
+  document.getElementById('parse-warn-dismiss').onclick=function(){ b.remove(); };
 }
 function parseTargetSheet(wb){
   const sheetName=wb.SheetNames.find(s=>s.includes('목표'))||wb.SheetNames[0];
