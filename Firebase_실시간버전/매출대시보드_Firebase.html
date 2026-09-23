@@ -3158,6 +3158,9 @@ function actAdd(key, grp, by){
                    grp:grp||'', by:by||'', date:now.slice(0,10), st:'open', stAt:now,
                    note:'',                              // 이 제안에 대한 메모·실패 사유
                    history:[{st:'open', at:now, by:by||''}] });   // 상태가 바뀐 기록
+  // 잔디 알림은 저장이 끝난 뒤에 보낸다 — 알림이 실패해도 제안은 남아야 한다.
+  // 동기화로 이 제안을 받는 다른 PC 에서는 actAdd 가 돌지 않으므로 중복 발송도 없다.
+  try{ setTimeout(function(){ if(window.jandiNotifyAct) window.jandiNotifyAct(key, grp||'', by||''); },0); }catch(_e){}
   return true;
 }
 // 상태 변경 이력 — 같은 (상태, 시각) 은 한 번만 남긴다 (동기화로 양쪽에서 들어와도 중복 없이)
@@ -6891,7 +6894,7 @@ function fbPack(obj){ var o={}; Object.keys(obj).forEach(function(k){ o[fbEnc(k)
 function fbUnpack(obj){ var o={}; Object.keys(obj||{}).forEach(function(k){ o[fbDec(k)]=obj[k]; }); return o; }
 
 // ══════════ Firebase 실시간 동기화 ══════════
-var _fbDb=null,_fbAuth=null,_fbReady=false,_fbEmail='',_fbMemoRef=null,_fbNoticeRef=null;
+var _fbDb=null,_fbAuth=null,_fbReady=false,_fbEmail='',_fbMemoRef=null,_fbNoticeRef=null,_fbCfgRef=null;
 function fbTeamPath(){ return 'teams/'+fbEnc(syncTeam()); }
 function fbMemosRef(){ return _fbDb.ref(fbTeamPath()+'/memos'); }
 function fbNoticesRef(){ return _fbDb.ref(fbTeamPath()+'/notices'); }
@@ -6940,6 +6943,7 @@ function fbAttach(){
   if(!_fbReady || !syncTeam()) return;
   fbDetach();
   syncSetStatus('loading');
+  jandiCfgAttach();
   _fbMemoRef=fbMemosRef();
   _fbMemoRef.on('value', function(snap){
     authGateReveal();
@@ -6965,6 +6969,7 @@ function fbAttach(){
 function fbDetach(){
   if(_fbMemoRef){ _fbMemoRef.off(); _fbMemoRef=null; }
   if(_fbNoticeRef){ _fbNoticeRef.off(); _fbNoticeRef=null; }
+  if(_fbCfgRef){ _fbCfgRef.off(); _fbCfgRef=null; }
 }
 function fbMergeMemos(remote){
   Object.keys(remote).forEach(function(k){
@@ -7095,6 +7100,136 @@ function syncOpenTeamModal(){
   };
 }
 
+// ══ 🔔 잔디 알림 ═══════════════════════════════════════════
+//   설정은 팀 단위다: teams/<팀>/config/jandi.
+//   우리 팀만 채워 두면 되고, 설정이 없는 팀에서는 아무 일도 일어나지 않는다.
+//   웹훅 주소는 비밀번호나 마찬가지라 이 파일에 두지 않는다 — 팀 데이터로만 오간다.
+var JANDI_LSKEY='jandi_cfg';   // 팀 설정을 이 PC 에 캐시 (동기화가 꺼져 있어도 동작하도록)
+function jandiCfgAll(){ try{ return JSON.parse(localStorage.getItem(JANDI_LSKEY)||'{}')||{}; }catch(e){ return {}; } }
+function jandiCfg(){ var o=jandiCfgAll()[syncTeam()]; return (o&&typeof o==='object')?o:{}; }
+function jandiCfgSave(cfg, push){
+  try{ var o=jandiCfgAll(); o[syncTeam()]=cfg; localStorage.setItem(JANDI_LSKEY, JSON.stringify(o)); }catch(e){}
+  if(push && syncEnabled() && _fbReady && syncTeam() && _fbDb){
+    try{ _fbDb.ref(fbTeamPath()+'/config/jandi').set(cfg); }catch(e){}
+  }
+}
+// 팀 설정을 받아 온다 — 팀장이 한 번 설정하면 팀원 PC 에 알아서 내려온다
+function jandiCfgAttach(){
+  if(!syncEnabled()||!_fbReady||!syncTeam()||!_fbDb) return;
+  try{
+    _fbCfgRef=_fbDb.ref(fbTeamPath()+'/config/jandi');
+    _fbCfgRef.on('value', function(snap){
+      var v=snap.val();
+      if(v && typeof v==='object') jandiCfgSave(v, false);
+    }, function(){});
+  }catch(e){}
+}
+// 전송 실패를 조용히 넘기지 않는다 — 보낸 줄 알고 있으면 안 되니까
+function jandiWarn(msg){
+  var prev=document.getElementById('jandi-warn-banner'); if(prev) prev.remove();
+  var b=document.createElement('div');
+  b.id='jandi-warn-banner';
+  b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:100000;background:#d93025;color:#fff;'
+    +'padding:10px 16px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;'
+    +"font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;font-size:13.5px;font-weight:600;"
+    +'box-shadow:0 2px 10px rgba(0,0,0,.25)';
+  b.innerHTML='⚠️ 잔디 알림을 보내지 못했습니다 (제안은 정상 등록되었습니다) — '+v3_esc(String(msg||''))
+    +'<button id="jandi-warn-x" style="background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.5);'
+    +'border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">닫기</button>';
+  document.body.appendChild(b);
+  var x=document.getElementById('jandi-warn-x'); if(x) x.onclick=function(){ b.remove(); };
+  setTimeout(function(){ if(document.getElementById('jandi-warn-banner')===b) b.remove(); }, 12000);
+}
+function jandiPost(url, body, info, cb){
+  if(!url){ cb&&cb(false,'웹훅 주소가 없습니다'); return; }
+  var payload={ body:String(body||'').slice(0,4000), connectColor:'#1a73e8' };
+  if(info) payload.connectInfo=[{ title:String(info.title||'').slice(0,200), description:String(info.desc||'').slice(0,800) }];
+  try{
+    fetch(url, { method:'POST',
+      headers:{ 'Accept':'application/vnd.tosslab.jandi-v2+json', 'Content-Type':'application/json' },
+      body: JSON.stringify(payload) })
+      .then(function(r){ cb&&cb(!!r.ok, r.ok?'':('잔디 응답 '+r.status)); })
+      .catch(function(e){ cb&&cb(false, String((e&&e.message)||e)); });
+  }catch(e){ cb&&cb(false, String((e&&e.message)||e)); }
+}
+// 제안 등록 알림 — actAdd 한 곳에서만 불린다
+window.jandiNotifyAct=function(key, grp, by){
+  var c=jandiCfg();
+  if(!c.url || c.on===false) return;            // 설정이 없거나 꺼 둔 팀은 그냥 지나간다
+  var m=(typeof _actRowMeta==='function')?_actRowMeta(key):{firm:String(key||''),cos:'',ind:''};
+  // 제안의 by 는 사람이 아니라 '담당 코스'다. 아래 코스와 겹치므로 한 번만 쓴다.
+  var head=['품목: '+(grp||'-')];
+  var cos=m.cos||by||'';
+  if(cos) head.push('코스 '+cos);
+  if(m.ind) head.push(m.ind);
+  // 등록한 사람: 메모 작성자 → 이 PC 에 저장해 둔 이름 순
+  var who=String(((window.LS_MGMT||{})[key]||{}).memoBy||'').trim();
+  if(!who){ try{ who=localStorage.getItem('memo_author_name')||''; }catch(e){} }
+  var d=new Date(), today=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+  var lines=['등록: '+(who||'-')+' · '+today];
+  if(c.withMemo!==false){                       // 기본 켜짐 — 끄려면 설정에서 체크 해제
+    var mm=String(((window.LS_MGMT||{})[key]||{}).memo||'').replace(/\s+/g,' ').trim();
+    if(mm) lines.push('메모: '+mm.slice(0,300));
+  }
+  jandiPost(c.url, '🎯 제안 등록 — '+(m.firm||'거래처'),
+    { title:head.join(' · '), desc:lines.join('\n') },
+    function(ok, err){
+      if(ok){ if(typeof showTgtToast==='function') showTgtToast('🔔 잔디로 알림을 보냈습니다'); }
+      else jandiWarn(err);
+    });
+};
+// 설정 창 — ☁️ 배지 메뉴에서 연다
+function jandiOpenSettings(){
+  var prev=document.getElementById('jandi-cfg-modal'); if(prev) prev.remove();
+  if(!syncTeam()){ alert('먼저 소속 팀을 선택해 주세요.'); return; }
+  var c=jandiCfg();
+  var modal=document.createElement('div');
+  modal.id='jandi-cfg-modal';
+  modal.style.cssText='position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center';
+  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:22px 24px;width:520px;max-width:92vw;'
+    +"font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif\">"
+    +'<div style="font-size:16px;font-weight:800;color:#202124;margin-bottom:4px">🔔 잔디 알림 설정 · '+v3_esc(syncTeam())+'</div>'
+    +'<div style="font-size:12px;color:#5f6368;line-height:1.6;margin-bottom:14px">제안을 등록하면 팀 대화방으로 알림이 갑니다. '
+    +'이 설정은 <b>'+v3_esc(syncTeam())+'</b>에만 적용되고, 같은 팀원 모두에게 자동으로 적용됩니다.</div>'
+    +'<label style="display:block;font-size:12px;font-weight:700;color:#3c4043;margin-bottom:5px">잔디 인커밍 웹훅 주소</label>'
+    +'<input id="jandi-url" value="'+v3_esc(c.url||'')+'" placeholder="https://wh.jandi.com/connect-api/webhook/..." '
+    +'style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #dadce0;border-radius:8px;font-size:12.5px;margin-bottom:12px">'
+    +'<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#3c4043;margin-bottom:7px;cursor:pointer">'
+    +'<input type="checkbox" id="jandi-on"'+(c.on===false?'':' checked')+'> 제안 등록 시 알림 보내기</label>'
+    +'<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#3c4043;margin-bottom:6px;cursor:pointer">'
+    +'<input type="checkbox" id="jandi-memo"'+(c.withMemo===false?'':' checked')+'> 메모 본문도 함께 보내기</label>'
+    +'<div style="font-size:11.5px;color:#9aa0a6;line-height:1.6;margin-bottom:14px">대화방에 팀 외 인원이 있다면 거래처 메모가 그대로 보입니다.</div>'
+    +'<div id="jandi-test-res" style="font-size:12.5px;font-weight:700;min-height:18px;margin-bottom:10px"></div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end">'
+    +'<button id="jandi-test" style="padding:8px 14px;border:1px solid #dadce0;border-radius:7px;background:#fff;font-size:13px;cursor:pointer">🧪 테스트 전송</button>'
+    +'<button id="jandi-cancel" style="padding:8px 14px;border:1px solid #dadce0;border-radius:7px;background:#fff;font-size:13px;cursor:pointer">취소</button>'
+    +'<button id="jandi-save" style="padding:8px 18px;border:none;border-radius:7px;background:#1a73e8;color:#fff;font-size:13px;font-weight:700;cursor:pointer">저장</button>'
+    +'</div></div>';
+  document.body.appendChild(modal);
+  function close(){ modal.remove(); }
+  modal.addEventListener('click', function(ev){ if(ev.target===modal) close(); });
+  document.getElementById('jandi-cancel').onclick=close;
+  document.getElementById('jandi-test').onclick=function(){
+    var res=document.getElementById('jandi-test-res');
+    var u=document.getElementById('jandi-url').value.trim();
+    if(!u){ res.style.color='#d93025'; res.textContent='웹훅 주소를 먼저 넣어 주세요.'; return; }
+    res.style.color='#5f6368'; res.textContent='보내는 중...';
+    jandiPost(u, '🔔 매출 대시보드 연결 테스트', { title:syncTeam()+' · 연결 확인', desc:'이 메시지가 보이면 설정이 끝난 것입니다.' },
+      function(ok, err){
+        res.style.color= ok?'#0f9d58':'#d93025';
+        res.textContent= ok?'✅ 보냈습니다. 잔디 대화방을 확인해 주세요.':('❌ 실패: '+err);
+      });
+  };
+  document.getElementById('jandi-save').onclick=function(){
+    var cfg={ url:document.getElementById('jandi-url').value.trim(),
+              on:!!document.getElementById('jandi-on').checked,
+              withMemo:!!document.getElementById('jandi-memo').checked };
+    jandiCfgSave(cfg, true);
+    close();
+    if(typeof showTgtToast==='function') showTgtToast('🔔 잔디 알림 설정을 저장했습니다');
+  };
+}
+
 // 배지 클릭 메뉴
 function syncOpenMenu(){
   var prev=document.getElementById('sync-menu-modal'); if(prev){ prev.remove(); return; }
@@ -7104,12 +7239,14 @@ function syncOpenMenu(){
   modal.innerHTML=
     '<button id="sync-menu-pull" style="display:block;width:230px;padding:10px 14px;border:none;background:#fff;text-align:left;font-size:13px;cursor:pointer">🔄 지금 동기화</button>'+
     '<button id="sync-menu-team" style="display:block;width:230px;padding:10px 14px;border:none;border-top:1px solid #f1f3f4;background:#fff;text-align:left;font-size:13px;cursor:pointer">👥 팀 변경</button>'+
+    '<button id="sync-menu-jandi" style="display:block;width:230px;padding:10px 14px;border:none;border-top:1px solid #f1f3f4;background:#fff;text-align:left;font-size:13px;cursor:pointer">🔔 잔디 알림 설정</button>'+
     (_fbEmail
       ? '<button id="sync-menu-out" style="display:block;width:230px;padding:10px 14px;border:none;border-top:1px solid #f1f3f4;background:#fff;text-align:left;font-size:13px;cursor:pointer;color:#d93025">🚪 로그아웃 ('+_fbEmail+')</button>'
       : '<button id="sync-menu-in" style="display:block;width:230px;padding:10px 14px;border:none;border-top:1px solid #f1f3f4;background:#fff;text-align:left;font-size:13px;cursor:pointer;color:#1a73e8;font-weight:700">🔑 Google 로그인</button>');
   document.body.appendChild(modal);
   var _mp=document.getElementById('sync-menu-pull'); if(_mp) _mp.onclick=function(){ modal.remove(); cloudPull(); };
   document.getElementById('sync-menu-team').onclick=function(){ modal.remove(); syncOpenTeamModal(); };
+  var _mj=document.getElementById('sync-menu-jandi'); if(_mj) _mj.onclick=function(){ modal.remove(); jandiOpenSettings(); };
   var _mi=document.getElementById('sync-menu-in'); if(_mi) _mi.onclick=function(){ modal.remove(); fbSignIn(); };
   var _mo=document.getElementById('sync-menu-out'); if(_mo) _mo.onclick=function(){ modal.remove(); fbSignOut(); };
   setTimeout(function(){

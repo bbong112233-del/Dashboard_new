@@ -33,6 +33,7 @@ npx playwright install chromium   # 브라우저가 없다면
 | `verify-proposal-view` | 제안 현황 뷰 (정렬·경과일·상태 필터) |
 | `verify-proposal-multi` | 한 거래처에 품목별 여러 제안 |
 | `verify-proposal-date` | 제안 등록일은 오늘, 기존 메모 작성일은 보존 |
+| `verify-jandi-notify` | 제안 등록 시 잔디 알림 (설정 없으면 조용, 실패해도 제안 보존) |
 
 ## 데이터
 
