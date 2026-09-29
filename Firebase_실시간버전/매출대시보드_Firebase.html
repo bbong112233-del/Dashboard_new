@@ -6839,6 +6839,8 @@ window.noticeSubmit = function(){
   window.renderNotices();
   if(window.renderMemoSheet) window.renderMemoSheet();
   noticesPushOne(id, d[id]);
+  // 잔디 알림은 저장이 끝난 뒤에 — 실패해도 공지는 남는다. 등록한 PC 에서만 보낸다.
+  try{ setTimeout(function(){ if(window.jandiNotifyNotice) window.jandiNotifyNotice(d[id]); },0); }catch(_e){}
 };
 
 window.noticeDelete = function(id){
@@ -7178,6 +7180,22 @@ window.jandiNotifyAct=function(key, grp, by){
       else jandiWarn(err);
     });
 };
+// 공지 등록 알림 — noticeSubmit 한 곳에서만 불린다 (수정·삭제는 보내지 않는다)
+window.jandiNotifyNotice=function(n){
+  var c=jandiCfg();
+  if(!c.url || c.notice===false || !n) return;      // 공지 알림만 따로 끌 수 있다
+  var txt=String(n.text||'').replace(/\s+/g,' ').trim();
+  if(!txt) return;
+  if(txt.length>700) txt=txt.slice(0,700)+'…';
+  var d=new Date(n.date||Date.now());
+  var day=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+  jandiPost(c.url, '📢 공지 ['+(n.level||'안내')+']',
+    { title:'작성: '+(n.name||'-')+' · '+day, desc:txt },
+    function(ok, err){
+      if(ok){ if(typeof showTgtToast==='function') showTgtToast('🔔 공지를 잔디로 보냈습니다'); }
+      else jandiWarn(err);
+    });
+};
 // 설정 창 — ☁️ 배지 메뉴에서 연다
 function jandiOpenSettings(){
   var prev=document.getElementById('jandi-cfg-modal'); if(prev) prev.remove();
@@ -7189,13 +7207,15 @@ function jandiOpenSettings(){
   modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:22px 24px;width:520px;max-width:92vw;'
     +"font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif\">"
     +'<div style="font-size:16px;font-weight:800;color:#202124;margin-bottom:4px">🔔 잔디 알림 설정 · '+v3_esc(syncTeam())+'</div>'
-    +'<div style="font-size:12px;color:#5f6368;line-height:1.6;margin-bottom:14px">제안을 등록하면 팀 대화방으로 알림이 갑니다. '
+    +'<div style="font-size:12px;color:#5f6368;line-height:1.6;margin-bottom:14px">제안·공지를 등록하면 팀 대화방으로 알림이 갑니다. '
     +'이 설정은 <b>'+v3_esc(syncTeam())+'</b>에만 적용되고, 같은 팀원 모두에게 자동으로 적용됩니다.</div>'
     +'<label style="display:block;font-size:12px;font-weight:700;color:#3c4043;margin-bottom:5px">잔디 인커밍 웹훅 주소</label>'
     +'<input id="jandi-url" value="'+v3_esc(c.url||'')+'" placeholder="https://wh.jandi.com/connect-api/webhook/..." '
     +'style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #dadce0;border-radius:8px;font-size:12.5px;margin-bottom:12px">'
     +'<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#3c4043;margin-bottom:7px;cursor:pointer">'
     +'<input type="checkbox" id="jandi-on"'+(c.on===false?'':' checked')+'> 제안 등록 시 알림 보내기</label>'
+    +'<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#3c4043;margin-bottom:7px;cursor:pointer">'
+    +'<input type="checkbox" id="jandi-notice"'+(c.notice===false?'':' checked')+'> 공지 등록 시 알림 보내기</label>'
     +'<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#3c4043;margin-bottom:6px;cursor:pointer">'
     +'<input type="checkbox" id="jandi-memo"'+(c.withMemo===false?'':' checked')+'> 메모 본문도 함께 보내기</label>'
     +'<div style="font-size:11.5px;color:#9aa0a6;line-height:1.6;margin-bottom:14px">대화방에 팀 외 인원이 있다면 거래처 메모가 그대로 보입니다.</div>'
@@ -7223,6 +7243,7 @@ function jandiOpenSettings(){
   document.getElementById('jandi-save').onclick=function(){
     var cfg={ url:document.getElementById('jandi-url').value.trim(),
               on:!!document.getElementById('jandi-on').checked,
+              notice:!!document.getElementById('jandi-notice').checked,
               withMemo:!!document.getElementById('jandi-memo').checked };
     jandiCfgSave(cfg, true);
     close();

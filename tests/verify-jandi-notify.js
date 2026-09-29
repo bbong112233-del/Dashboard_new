@@ -118,6 +118,50 @@ function chk(n,c,d){ (c?ok:bad).push(n+(d?' — '+d:'')); }
   chk('전송 실패해도 제안 보존', F.act===1);
   failNext=false;
 
+  // ── 6-2. 공지 등록 알림 ──
+  await p.evaluate(()=>{ const bn=document.getElementById('jandi-warn-banner'); if(bn) bn.remove(); });
+  await p.click('.tab[data-tab="memo"]'); await p.waitForTimeout(1500);
+  async function 공지등록(text, level){
+    await p.evaluate(([t,l])=>{
+      if(window.noticeToggleComposer) window.noticeToggleComposer();
+      const inp=document.getElementById('notice-input'); if(inp) inp.value=t;
+      const sel=document.getElementById('notice-level'); if(sel&&l) sel.value=l;
+      window.noticeSubmit();
+    },[text,level]);
+    await p.waitForTimeout(900);
+  }
+  sent=[];
+  await 공지등록('내일 오전 재고 실사 있습니다','중요');
+  chk('공지 등록 시 1건 전송', sent.length===1, sent.length+'건');
+  const jn=(()=>{ try{ return JSON.parse((sent[0]||{}).body||'{}'); }catch(e){ return {}; } })();
+  chk('공지 본문이 그대로 들어감', JSON.stringify(jn).indexOf('내일 오전 재고 실사')>=0, JSON.stringify(jn).slice(0,140));
+  chk('공지 등급 표시', String(jn.body||'').indexOf('중요')>=0, jn.body);
+  chk('작성자·날짜 표시', /작성: .+ · \d{4}-\d{2}-\d{2}/.test(String((jn.connectInfo||[{}])[0].title||'')), JSON.stringify(jn.connectInfo));
+  chk('공지가 제안 형식과 섞이지 않음', String(jn.body||'').indexOf('제안 등록')<0, jn.body);
+
+  // 공지 수정·삭제는 알리지 않는다
+  sent=[];
+  await p.evaluate(()=>{
+    const d=noticesRead(); const id=Object.keys(d).pop();
+    d[id].text='수정한 공지'; noticesWrite(d); noticesPushOne(id,d[id]);
+  });
+  await p.waitForTimeout(700);
+  chk('공지 수정은 알리지 않음', sent.length===0, sent.length+'건');
+
+  // 공지 알림만 끄면 공지는 안 가고 제안은 그대로 간다
+  sent=[];
+  await p.evaluate(()=>{
+    localStorage.setItem('jandi_cfg', JSON.stringify({'영업5팀':{url:'https://wh.jandi.com/connect-api/webhook/TEST',on:true,notice:false}}));
+  });
+  await 공지등록('이건 나가면 안 되는 공지','안내');
+  chk('공지 알림 끔: 공지는 안 나감', sent.length===0, sent.length+'건');
+  await p.evaluate(()=>{ const t=window.__mk(21,'공지 끈 상태 확인'); window.__G=t; lsSave(); actAdd(t.k,'부자재','박정주'); lsSave(); });
+  await p.waitForTimeout(900);
+  chk('공지만 꺼도 제안 알림은 그대로', sent.length===1, sent.length+'건');
+  await p.evaluate(()=>{
+    localStorage.setItem('jandi_cfg', JSON.stringify({'영업5팀':{url:'https://wh.jandi.com/connect-api/webhook/TEST',on:true,withMemo:false}}));
+  });
+
   // ── 7. 설정 창 ──
   await p.evaluate(()=>{ const bn=document.getElementById('jandi-warn-banner'); if(bn) bn.remove(); jandiOpenSettings(); });
   await p.waitForTimeout(600);
@@ -125,12 +169,16 @@ function chk(n,c,d){ (c?ok:bad).push(n+(d?' — '+d:'')); }
     const m=document.getElementById('jandi-cfg-modal');
     return { open:!!m, url:(document.getElementById('jandi-url')||{}).value||'',
              team: m? m.innerText.indexOf('영업5팀')>=0 : false,
-             test: !!document.getElementById('jandi-test') };
+             test: !!document.getElementById('jandi-test'),
+             noticeBox: !!document.getElementById('jandi-notice'),
+             noticeChecked: !!(document.getElementById('jandi-notice')||{}).checked };
   });
   chk('설정 창 열림', G.open);
   chk('설정 창에 현재 팀 표시', G.team);
   chk('저장된 주소가 채워짐', G.url.indexOf('/webhook/TEST')>=0, G.url);
   chk('테스트 전송 버튼 있음', G.test);
+  chk('공지 알림 스위치 있음', G.noticeBox);
+  chk('공지 알림 기본 켜짐', G.noticeChecked);
 
   sent=[];
   await p.click('#jandi-test'); await p.waitForTimeout(900);
