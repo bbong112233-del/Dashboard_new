@@ -87,12 +87,13 @@ function chk(n,c,d){ (c?ok:bad).push(n+(d?' — '+d:'')); }
                                    checked:(document.getElementById('ls-act-on')||{}).checked,
                                    text:(document.getElementById('ls-memo-input')||{}).value,
                                    info:(document.getElementById('ls-act-row')||{}).innerText||'' }));
-  chk('제안 등록 토글 노출 + 기본 켜짐', B1.row && B1.checked===true);
+  chk('제안 등록 토글 노출 + 기본 꺼짐(메모만 쓸 때 제안이 잡히지 않는다)', B1.row && B1.checked===false, 'row='+B1.row+' checked='+B1.checked);
   chk('토글에 품목·담당·등록일 자동 표기', /품목/.test(B1.info)&&/담당/.test(B1.info)&&/등록일/.test(B1.info), B1.info.replace(/\n/g,' ').slice(0,90));
   chk('메모 문구 자동 입력', /^\[품목 제안\]/.test(B1.text||''), JSON.stringify(B1.text));
 
   const KEY=await p.evaluate(()=>document.querySelector('#ws-content .ws-propose-btn').getAttribute('data-mkey'));
   await p.fill('#ls-memo-input','[품목 제안] MRO — 9월 방문 시 절삭공구 카탈로그 전달');
+  await p.check('#ls-act-on');                      // 제안으로 등록하려면 사람이 직접 켠다
   await p.click('#ls-memo-save'); await p.waitForTimeout(1000);
   const B2=await p.evaluate(k=>{ const a=(window.LS_MGMT[k]||{}).actions||[];
     return { n:a.length, last:a[a.length-1]||null, memo:(window.LS_MGMT[k]||{}).memo||'' }; }, KEY);

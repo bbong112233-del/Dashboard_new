@@ -162,6 +162,40 @@ function chk(n,c,d){ (c?ok:bad).push(n+(d?' — '+d:'')); }
     localStorage.setItem('jandi_cfg', JSON.stringify({'영업5팀':{url:'https://wh.jandi.com/connect-api/webhook/TEST',on:true,withMemo:false}}));
   });
 
+  // ── 6-3. 메모만 저장하면 제안도 알림도 없다 (2026-09-30 실제 사고) ──
+  //   품목을 아는 경로(상품→거래처 팝업 등)에서 메모를 쓰면 제안이 자동 등록되어
+  //   잔디 알림까지 나갔다. 체크박스 기본값이 켜져 있던 탓이다.
+  sent=[];
+  const 메모전용 = await p.evaluate(()=>{
+    const f=(window._allRows||[])[30].firm;
+    window._drillGrpHint='조명';
+    window.drillFirmMemo(f);
+    return f;
+  });
+  await p.waitForTimeout(700);
+  const M0=await p.evaluate(()=>({ row:!!document.getElementById('ls-act-row'),
+                                   checked:!!(document.getElementById('ls-act-on')||{}).checked }));
+  chk('품목 아는 경로: 제안 토글은 있으나 기본 꺼짐', M0.row && M0.checked===false, JSON.stringify(M0));
+  await p.evaluate(()=>{ document.getElementById('ls-memo-input').value='메모만 남깁니다 — 제안 아님';
+    document.getElementById('ls-memo-save').click(); });
+  await p.waitForTimeout(1000);
+  const M1=await p.evaluate(f=>{ const idx=(typeof _firmMemoIndex==='function')?(_firmMemoIndex()||{}):{};
+    const k=(idx[f]||{}).key;
+    return { memo:((window.LS_MGMT[k]||{}).memo||''), acts:(k&&typeof actList==='function')?actList(k).length:0 }; }, 메모전용);
+  chk('메모만 저장: 메모는 남는다', M1.memo.indexOf('메모만 남깁니다')>=0, M1.memo);
+  chk('메모만 저장: 제안이 생기지 않는다', M1.acts===0, M1.acts+'건');
+  chk('메모만 저장: 잔디로 나가지 않는다', sent.length===0, sent.length+'건');
+
+  // 체크박스를 켜면 그때는 제안 등록 + 알림
+  sent=[];
+  await p.evaluate(()=>{ const f=(window._allRows||[])[33].firm; window._drillGrpHint='전선'; window.drillFirmMemo(f); });
+  await p.waitForTimeout(700);
+  await p.evaluate(()=>{ document.getElementById('ls-memo-input').value='이건 제안으로 올립니다';
+    document.getElementById('ls-act-on').checked=true;
+    document.getElementById('ls-memo-save').click(); });
+  await p.waitForTimeout(1000);
+  chk('체크하면 제안 등록 + 잔디 1건', sent.length===1, sent.length+'건');
+
   // ── 7. 설정 창 ──
   await p.evaluate(()=>{ const bn=document.getElementById('jandi-warn-banner'); if(bn) bn.remove(); jandiOpenSettings(); });
   await p.waitForTimeout(600);

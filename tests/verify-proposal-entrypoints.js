@@ -54,6 +54,7 @@ function chk(n,c,d){ (c?ok:bad).push(n+(d?' — '+d:'')); }
     chk('#5 품목 자동(조명) — 체크박스, 칩 아님', R2.auto && R2.chips===0, 'auto='+R2.auto+' chips='+R2.chips);
     chk('#5 안내에 품목 조명 표기', /품목 조명/.test(R2.txt), R2.txt.slice(0,90));
     await p.evaluate(()=>{ document.getElementById('ls-memo-input').value='상품별에서 남긴 제안 메모';
+      document.getElementById('ls-act-on').checked=true;   // 제안 등록은 사람이 켜야 한다
       document.getElementById('ls-memo-save').click(); });
     await p.waitForTimeout(900);
     const R3=await p.evaluate(f=>{
