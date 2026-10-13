@@ -2440,8 +2440,8 @@ function _renderIndBoard(type,idx){
   if(!tbody)return;
   tbody.innerHTML=sorted.map(function(p,j){
     return isBot
-      ?'<tr><td>'+rkSp(j)+'</td><td><b>'+p.name+'</b></td><td>'+p.cat+'</td><td>'+fmtW(p.cur)+'</td><td style="color:#80868b">'+fmtW(p.cmp)+'</td><td>'+gRow(p.gr)+'</td></tr>'
-      :'<tr><td>'+rkSp(j)+'</td><td><b>'+p.name+'</b></td><td>'+p.cat+'</td><td>'+fmtW(p.cur)+'</td><td>'+gRow(p.gr)+'</td></tr>';
+      ?'<tr><td>'+rkSp(j)+'</td><td><b class="sec-prod-link" data-prod="'+v3_esc(p.name)+'" style="cursor:pointer;color:#1a73e8;text-decoration:underline">'+v3_esc(p.name)+'</b></td><td>'+p.cat+'</td><td>'+fmtW(p.cur)+'</td><td style="color:#80868b">'+fmtW(p.cmp)+'</td><td>'+gRow(p.gr)+'</td></tr>'
+      :'<tr><td>'+rkSp(j)+'</td><td><b class="sec-prod-link" data-prod="'+v3_esc(p.name)+'" style="cursor:pointer;color:#1a73e8;text-decoration:underline">'+v3_esc(p.name)+'</b></td><td>'+p.cat+'</td><td>'+fmtW(p.cur)+'</td><td>'+gRow(p.gr)+'</td></tr>';
   }).join('')||'<tr><td colspan="'+(isBot?6:5)+'" style="text-align:center;padding:14px;color:#9aa0a6">데이터 없음</td></tr>';
   // 헤더 화살표 업데이트
   document.querySelectorAll('.sort-th[data-iboard="'+key+'"]').forEach(function(th){
@@ -8081,6 +8081,84 @@ function _mpopUpdateSub(){
            :'<span style="margin-left:8px;background:#e6f4ea;color:#137333;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700">거래처수 목표 달성</span>');
 }
 window._mpopUpdateSub=_mpopUpdateSub;
+</script>
+
+<script>
+// ══ 🔎 업종군 보드 드릴: 상품→거래처→상품군→상품 (코스 무관 전코스 합산) ══
+(function(){
+  function esc(x){ return (typeof v3_esc==='function')?v3_esc(x):String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+  function kpi3(cur,cmp,extraLabel,extraVal){
+    var gr=growth(cur,cmp);
+    return '<div class="drill-kpi-item" style="border-color:#1a73e8"><div class="dv">'+fmtW(cur)+'</div><div class="dl">현재 매출</div></div>'
+      +'<div class="drill-kpi-item" style="border-color:#b0c4de"><div class="dv">'+fmtW(cmp)+'</div><div class="dl">전년 매출</div></div>'
+      +'<div class="drill-kpi-item" style="border-color:'+((gr||0)>=0?"#27ae60":"#e74c3c")+'"><div class="dv">'+gRow(gr)+'</div><div class="dl">성장률</div></div>'
+      +(extraLabel?'<div class="drill-kpi-item" style="border-color:#7a8295"><div class="dv">'+extraVal+'</div><div class="dl">'+extraLabel+'</div></div>':'');
+  }
+  function diffCell(diff){ return '<td style="text-align:right;color:'+(diff>=0?"#0f9d58":"#d93025")+'">'+(diff>=0?'+':'')+Math.round(diff).toLocaleString()+'원</td>'; }
+  window.secProdFirms=function(prodName){
+    if(!GDATA.allRows)return;
+    window._secProd=prodName;
+    var rows=GDATA.allRows.filter(function(r){ return r.prod===prodName&&((r.lc||0)>0||(r.lcp||0)>0||(r.mc||0)>0||(r.mcp||0)>0||(r.rc||0)>0||(r.rcp||0)>0); });
+    if(!rows.length){ alert('데이터가 없습니다.'); return; }
+    var fm={};
+    rows.forEach(function(r){ var k=r.firm||'(거래처 없음)'; if(!fm[k])fm[k]={name:k,cur:0,cmp:0}; fm[k].cur+=(r.lc||0)+(r.mc||0)+(r.rc||0); fm[k].cmp+=(r.lcp||0)+(r.mcp||0)+(r.rcp||0); });
+    var firms=Object.keys(fm).map(function(k){return fm[k];}).sort(function(a,b){return b.cur-a.cur;});
+    var tc=firms.reduce(function(s,d){return s+d.cur;},0), tcp=firms.reduce(function(s,d){return s+d.cmp;},0);
+    _drillBack=null; document.getElementById('drill-back-btn').style.display='none';
+    document.getElementById('drill-title').textContent=prodName;
+    document.getElementById('drill-sub').textContent='판매 거래처 '+firms.length+'개 (전선 제외) · 거래처 클릭 시 상품군별 매출';
+    document.getElementById('drill-kpi').innerHTML=kpi3(tc,tcp,'거래처수',firms.length+'개');
+    document.getElementById('drill-thead').innerHTML='<tr><th>순위</th><th>거래처명</th><th style="text-align:right">현재 매출</th><th style="text-align:right">전년 매출</th><th style="text-align:right">증감</th><th style="text-align:right">성장률</th></tr>';
+    document.getElementById('drill-tbody').innerHTML=firms.map(function(d,i){ var diff=d.cur-d.cmp;
+      return '<tr class="sec-firm-row" data-firm="'+esc(d.name)+'" style="cursor:pointer" title="클릭: 상품군별 매출"><td>'+rkSp(i)+'</td><td><b style="color:#1a73e8">'+esc(d.name)+'</b></td><td style="text-align:right;font-weight:700">'+fmtW(d.cur)+'</td><td style="text-align:right;color:#80868b">'+fmtW(d.cmp)+'</td>'+diffCell(diff)+'<td style="text-align:right">'+gRow(growth(d.cur,d.cmp))+'</td></tr>';
+    }).join('');
+    _openDrillModal();
+  };
+  window.secFirmGrps=function(firm){
+    if(!GDATA.allRows)return;
+    window._secFirm=firm;
+    var rows=GDATA.allRows.filter(function(r){ return r.firm===firm; });
+    if(!rows.length){ alert('데이터가 없습니다.'); return; }
+    var d={wc:0,wcp:0,lc:0,lcp:0,mc:0,mcp:0,rc:0,rcp:0,tc:0,tcp:0};
+    rows.forEach(function(r){ d.wc+=r.wc||0;d.wcp+=r.wcp||0;d.lc+=r.lc||0;d.lcp+=r.lcp||0;d.mc+=r.mc||0;d.mcp+=r.mcp||0;d.rc+=r.rc||0;d.rcp+=r.rcp||0;d.tc+=r.tc||0;d.tcp+=r.tcp||0; });
+    var grps=[{key:'wire',name:'⚡ 전선',cur:d.wc,cmp:d.wcp},{key:'light',name:'💡 조명',cur:d.lc,cmp:d.lcp},{key:'mat',name:'🔩 부자재',cur:d.mc,cmp:d.mcp},{key:'mro',name:'🛒 MRO',cur:d.rc,cmp:d.rcp}].filter(function(g){return g.cur>0||g.cmp>0;}).sort(function(a,b){return b.cur-a.cur;});
+    _drillBack=window._secProd?function(){ window.secProdFirms(window._secProd); }:null;
+    document.getElementById('drill-back-btn').style.display=_drillBack?'inline-flex':'none';
+    document.getElementById('drill-title').textContent=firm;
+    document.getElementById('drill-sub').textContent='상품군별 매출 · 상품군 클릭 시 판매 상품';
+    document.getElementById('drill-kpi').innerHTML=kpi3(d.tc,d.tcp,null,null);
+    document.getElementById('drill-thead').innerHTML='<tr><th>상품군</th><th style="text-align:right">현재 매출</th><th style="text-align:right">전년 매출</th><th style="text-align:right">증감</th><th style="text-align:right">성장률</th></tr>';
+    document.getElementById('drill-tbody').innerHTML=grps.map(function(g){ var diff=g.cur-g.cmp;
+      return '<tr class="sec-grp-row" data-firm="'+esc(firm)+'" data-grp="'+g.key+'" style="cursor:pointer" title="클릭: 판매 상품"><td><b style="color:#1a73e8">'+g.name+'</b></td><td style="text-align:right;font-weight:700">'+fmtW(g.cur)+'</td><td style="text-align:right;color:#80868b">'+fmtW(g.cmp)+'</td>'+diffCell(diff)+'<td style="text-align:right">'+gRow(growth(g.cur,g.cmp))+'</td></tr>';
+    }).join('');
+    _openDrillModal();
+  };
+  window.secFirmGrpProds=function(firm,grp){
+    var cfg={wire:{c:'wc',p:'wcp',label:'전선'},light:{c:'lc',p:'lcp',label:'조명'},mat:{c:'mc',p:'mcp',label:'부자재'},mro:{c:'rc',p:'rcp',label:'MRO'}}[grp];
+    if(!cfg||!GDATA.allRows)return;
+    var rows=GDATA.allRows.filter(function(r){ return r.firm===firm&&((r[cfg.c]||0)>0||(r[cfg.p]||0)>0); });
+    var map={};
+    rows.forEach(function(r){ var k=r.prod||'(상품명 없음)'; if(!map[k])map[k]={name:k,cur:0,cmp:0}; map[k].cur+=r[cfg.c]||0; map[k].cmp+=r[cfg.p]||0; });
+    var prods=Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){return b.cur-a.cur;});
+    var tc=prods.reduce(function(s,d){return s+d.cur;},0), tcp=prods.reduce(function(s,d){return s+d.cmp;},0);
+    _drillBack=function(){ window.secFirmGrps(firm); };
+    document.getElementById('drill-back-btn').style.display='inline-flex';
+    document.getElementById('drill-title').textContent=firm+' · '+cfg.label;
+    document.getElementById('drill-sub').textContent='판매 상품 '+prods.length+'개';
+    document.getElementById('drill-kpi').innerHTML=kpi3(tc,tcp,'상품수',prods.length+'개');
+    document.getElementById('drill-thead').innerHTML='<tr><th>순위</th><th>상품명</th><th style="text-align:right">현재 매출</th><th style="text-align:right">전년 매출</th><th style="text-align:right">증감</th><th style="text-align:right">성장률</th></tr>';
+    document.getElementById('drill-tbody').innerHTML=prods.map(function(d,i){ var diff=d.cur-d.cmp;
+      return '<tr><td>'+rkSp(i)+'</td><td><b>'+esc(d.name)+'</b></td><td style="text-align:right;font-weight:700">'+fmtW(d.cur)+'</td><td style="text-align:right;color:#80868b">'+fmtW(d.cmp)+'</td>'+diffCell(diff)+'<td style="text-align:right">'+gRow(growth(d.cur,d.cmp))+'</td></tr>';
+    }).join('')||'<tr><td colspan="6" style="text-align:center;padding:14px;color:#9aa0a6">데이터 없음</td></tr>';
+    _openDrillModal();
+  };
+  document.addEventListener('click', function(e){
+    if(!e.target.closest)return;
+    var pl=e.target.closest('.sec-prod-link'); if(pl){ window.secProdFirms(pl.getAttribute('data-prod')); return; }
+    var fr=e.target.closest('.sec-firm-row'); if(fr){ window.secFirmGrps(fr.getAttribute('data-firm')); return; }
+    var gr=e.target.closest('.sec-grp-row'); if(gr){ window.secFirmGrpProds(gr.getAttribute('data-firm'), gr.getAttribute('data-grp')); return; }
+  });
+})();
 </script>
 
 </body>
