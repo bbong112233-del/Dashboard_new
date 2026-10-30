@@ -79,7 +79,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 @media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 .kpi{background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.07);padding:14px 16px;border-left:4px solid #dadce0}
 .kpi-lbl{font-size:11px;color:#80868b;font-weight:600;margin-bottom:4px}
-.kpi-val{font-size:20px;font-weight:900;color:#202124;line-height:1.2;margin-bottom:4px}
+.kpi-val{font-size:20px;font-weight:900;color:#202124;line-height:1.2;margin-bottom:4px;white-space:nowrap}
+/* 원단위 전체 표기는 자릿수가 길다 — 카드 폭을 넘지 않게 줄인다 */
+.kpi-val{font-size:clamp(14px,1.45vw,20px)}
+.risk-item .won{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:10.5px}
 .kpi-chg{font-size:11px;font-weight:700;margin-bottom:3px}
 .kpi-chg.up{color:#0f9d58}.kpi-chg.dn{color:#d93025}
 .kpi-note{font-size:10px;color:#9aa0a6}
@@ -1505,8 +1508,8 @@ function renderAll(rows,grand,fname){
 
   // ── KPI 수정 ──
   document.getElementById('kpi-overview').innerHTML=
-    kpiHtml('현재기간 매출',fmt(grand.tc)+'원',totalGr,`비교: ${fmt(grand.tcp)}원`,'c1')+
-    kpiHtml('매출 증가액',fmt(Math.abs(grand.tc-grand.tcp))+'원',totalGr,'전기 대비 순증','c2')+
+    kpiHtml('현재기간 매출',fmtW(grand.tc),totalGr,`비교: ${fmtW(grand.tcp)}`,'c1')+
+    kpiHtml('매출 증가액',fmtW(Math.abs(grand.tc-grand.tcp)),totalGr,'전기 대비 순증','c2')+
     (()=>{const _iA=byProd.filter(d=>d.cur>0).length,_iB=byProd.filter(d=>d.cmp>0).length;return kpiHtml('취급 아이템 수',_iA.toLocaleString()+'개',growth(_iA,_iB)||0,`전년: ${_iB.toLocaleString()}개`,'c3');})()+
     kpiHtml('취급 상품 수',byProd.length.toLocaleString()+'개',0,`카테고리 ${byCat.length}개`,'c4')+
     kpiHtml('거래업체수',firmCurCnt.toLocaleString()+'개',firmGr,`전년: ${firmPrvCnt.toLocaleString()}개`,'c1');
@@ -1672,7 +1675,7 @@ function renderAll(rows,grand,fname){
 
   // KPI
   document.getElementById('kpi-industry').innerHTML=
-    indList.slice(0,3).map((d,i)=>kpiHtml(d.name+' 매출',fmt(d.tc)+'원',growth(d.tc,d.tcp)||0,`비교: ${fmt(d.tcp)}원`,['c1','c2','c3'][i])).join('')+
+    indList.slice(0,3).map((d,i)=>kpiHtml(d.name+' 매출',fmtW(d.tc),growth(d.tc,d.tcp)||0,`비교: ${fmtW(d.tcp)}`,['c1','c2','c3'][i])).join('')+
     kpiHtml('업종군 수',indList.length+'개',0,`총 ${rows.length.toLocaleString()}건`,'c4');
 
   // ── 업종별 제품군 현황 보드 (유통 / 공구 / 공사) ──
@@ -1865,9 +1868,9 @@ function renderAll(rows,grand,fname){
     const declineCnt=g.cats.length?g.cats.filter(d=>d.cmp>0&&(d.gr||0)<0).length:g.prods.filter(d=>d.cmp>0&&(d.gr||0)<0).length;
     return`<div class="ins2-card" style="border-top:3px solid ${g.color}">
       <h4>${g.icon} ${g.label} 심층 분석</h4>
-      <div class="risk-item"><span class="risk-name">현재 매출</span><b style="color:${g.color}">${fmt(g.cur)}원</b></div>
-      <div class="risk-item"><span class="risk-name">비교 매출</span><span>${fmt(g.cmp)}원</span></div>
-      <div class="risk-item"><span class="risk-name">매출 차이</span><b style="color:${(g.cur-g.cmp)>=0?'#0f9d58':'#d93025'}">${(g.cur-g.cmp)>=0?'+':''}${fmt(g.cur-g.cmp)}원</b></div>
+      <div class="risk-item"><span class="risk-name">현재 매출</span><b class="won" style="color:${g.color}">${fmtW(g.cur)}</b></div>
+      <div class="risk-item"><span class="risk-name">비교 매출</span><span class="won">${fmtW(g.cmp)}</span></div>
+      <div class="risk-item"><span class="risk-name">매출 차이</span><b class="won" style="color:${(g.cur-g.cmp)>=0?'#0f9d58':'#d93025'}">${(g.cur-g.cmp)>=0?'+':''}${fmtW(g.cur-g.cmp)}</b></div>
       <div class="risk-item"><span class="risk-name">성장률</span>${gRow(gr)}</div>
       <div class="risk-item"><span class="risk-name">취급 상품 수</span><span>${g.prods.length}개</span></div>
       ${g.cats.length?`<div class="risk-item"><span class="risk-name">카테고리 수</span><span>${g.cats.length}개</span></div>`:''}
