@@ -5179,13 +5179,21 @@ function _brandMetricsRow(label, m, trAttr){
 var BRAND_THEAD='<tr><th>브랜드</th><th style="text-align:right">전년 매출액</th><th style="text-align:right">매출액 목표</th><th style="text-align:right">매출액</th><th style="text-align:right">매출액 증감</th><th style="text-align:right">목표 달성율</th><th style="text-align:right">성장율</th><th style="text-align:right">전년 거래처수</th><th style="text-align:right">거래처수</th><th style="text-align:right">거래처수 증감</th></tr>';
 
 // 관리 대상 브랜드(이 목록·순서대로만 출력)
-var BRAND_LIST=['계양','디월트','마끼다 유선(PM)','마끼다 충전','마끼다 충전(PM)','마끼다AC','밀워키','보쉬','보쉬 가든툴','보쉬AC','아임삭'];
+var BRAND_LIST=['계양','디월트','마끼다','밀워키','보쉬','아임삭'];
+// 엑셀의 '브랜드' 값은 '마끼다 충전(PM)', '보쉬AC', '보쉬 가든툴' 처럼 갈라져 들어온다.
+// 6대 브랜드 이름으로 시작하면 그 브랜드로 묶어서 한 줄로 본다.
+// (목록에 없는 브랜드는 원래 이름 그대로 두고, 시트에는 나오지 않는다)
+function _brandNorm(v){
+  var t=String(v||'').trim(); if(!t) return '';
+  for(var i=0;i<BRAND_LIST.length;i++){ if(t.indexOf(BRAND_LIST[i])===0) return BRAND_LIST[i]; }
+  return t;
+}
 window.renderBrandSheet=function(){
   var tb=document.getElementById('brand-tbody'); if(!tb) return;
   var thead=document.getElementById('brand-thead'); if(thead) thead.innerHTML=BRAND_THEAD;
   var rows=_brandRows();
   var groups={};
-  rows.forEach(function(r){ var b=(r.brand||'').trim(); if(!b) return; (groups[b]=groups[b]||[]).push(r); });
+  rows.forEach(function(r){ var b=_brandNorm(r.brand); if(!b) return; (groups[b]=groups[b]||[]).push(r); });
   var present=BRAND_LIST.filter(function(b){ return groups[b] && groups[b].length; });
   if(!present.length){
     tb.innerHTML='<tr><td colspan="10" style="text-align:center;padding:36px;color:#9aa0a6;font-size:13px">지정한 브랜드의 데이터가 없습니다<br><span style="font-size:11px;color:#bbb">업로드 파일 ‘브랜드’ 컬럼에 해당 브랜드명을 채워주세요</span></td></tr>';
@@ -5243,7 +5251,7 @@ document.addEventListener('click',function(e){
   _mpopRender();
 });
 function brandCosPopup(brand){
-  var rows=_brandRows().filter(function(r){ return (r.brand||'').trim()===brand; });
+  var rows=_brandRows().filter(function(r){ return _brandNorm(r.brand)===brand; });
   if(!rows.length){ alert('해당 브랜드 데이터가 없습니다.'); return; }
   var groups={};
   rows.forEach(function(r){ var c=(r.cos||'').trim()||'(코스없음)'; (groups[c]=groups[c]||[]).push(r); });
@@ -5267,7 +5275,7 @@ function brandCosPopup(brand){
 
 // 브랜드 × 코스 → 거래처별·상품별 판매현황 팝업
 function brandCosDetail(brand, cos){
-  var rows=_brandRows().filter(function(r){ return (r.brand||'').trim()===brand && (r.cos||'').trim()===cos; });
+  var rows=_brandRows().filter(function(r){ return _brandNorm(r.brand)===brand && (r.cos||'').trim()===cos; });
   if(!rows.length){ alert('데이터가 없습니다.'); return; }
   // 거래처별로 묶고, 각 거래처 안에 상품 판매내역
   var firmMap={};
@@ -7993,7 +8001,7 @@ function _wsAggFirms(rows){
 // 특정 브랜드/대분류를 거래 중(올해·전년 중 1회 이상)인 회원사 집합
 function _wsBuyerSet(kind,key){
   var f=(kind==='brand')
-    ? function(r){ return (r.brand||'').trim()===key; }
+    ? function(r){ return (typeof _brandNorm==='function'?_brandNorm(r.brand):(r.brand||'').trim())===key; }
     : function(r){ return (r.major||'').trim()===key; };
   var set={};
   _brandRows().forEach(function(r){

@@ -34,6 +34,7 @@ npx playwright install chromium   # 브라우저가 없다면
 | `verify-proposal-multi` | 한 거래처에 품목별 여러 제안 |
 | `verify-proposal-date` | 제안 등록일은 오늘, 기존 메모 작성일은 보존 |
 | `verify-jandi-notify` | 제안 등록 시 잔디 알림 (설정 없으면 조용, 실패해도 제안 보존) |
+| `verify-brand-merge` | 공구 6대 브랜드 통합 (마끼다·보쉬 세부 표기를 한 줄로) |
 
 ## 데이터
 
